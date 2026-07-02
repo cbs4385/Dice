@@ -5,6 +5,9 @@
 *.alf
 *.ulf
 
+# Claude Code session/agent-runtime state, not project source.
+.claude/
+
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
