@@ -1,0 +1,62 @@
+You are implementing Quintessence, a PC dice-placement game. The full specification
+already exists in this repo. Build it exactly as specified, working autonomously
+through the agent-owned layers and stopping cleanly at the human-gated boundary.
+
+Read these before writing any code, in this order, and treat them as authoritative:
+  1. AGENTS.md (root) — your operating rules. Non-negotiable.
+  2. docs/agent-build-plan.md — the full plan: milestones M0–M7, the engine
+     implementation contract (§5), verification strategy (§8), and human-gated
+     checkpoints (§6). Authoritative for the plan.
+  3. docs/rulebook.md — the game rules. Single source of truth for mechanics/scoring.
+  4. docs/gdd.md — product scope and UX (read as needed).
+
+After reading, restate in 3–5 bullets: the scope of this run, the two overriding
+rules, and the exact conditions under which you will stop and ask me. Then begin.
+
+SCOPE OF THIS RUN: milestones M0 through M3 only.
+  • M0 — pnpm monorepo scaffold (packages: engine, game, ui; app: desktop) with lint
+    (including the import-boundary and engine-purity rules), typecheck, Vitest, build,
+    and CI green on an empty scaffold.
+  • M1 — the pure engine core per the build plan's contract: deterministic,
+    side-effect-free, integer-only scoring, injected seeded PRNG (no Math.random or
+    Date anywhere in engine or game). Encode the rulebook's worked example as the
+    canonical 28-point acceptance test; it must pass.
+  • M2 — the round loop / state machine (drafting, Firmament, favor, scoring) as a
+    pure reducer, plus a headless self-play harness that runs thousands of seeded
+    games with zero exceptions and identical results per seed.
+  • M3 — the three AI tiers as pure policies, with the AI-sanity tests from the plan.
+
+Do NOT start M4 (presentation) or anything beyond M3 in this run.
+
+WORKING RULES FOR THIS RUN:
+  • Small increments. One task = one focused change + its tests + green checks.
+    Commit each with Conventional Commits.
+  • Before every commit, `pnpm lint && pnpm typecheck && pnpm test` must pass.
+    Never commit red.
+  • Update docs/progress.md at the end of each milestone; log decisions and blockers
+    there.
+  • The draft model (snake vs simultaneous) is an UNRESOLVED human decision. To
+    unblock self-play, implement drafting behind a swappable strategy interface and
+    use snake as a clearly-marked PROVISIONAL default. Do not bake this choice into
+    any UX or netcode, and record it as an open question in progress.md.
+
+STOP AND ASK ME — using the BLOCKED format in AGENTS.md — if you hit any of these:
+  • You are about to begin M4, or any human-gated item (feel, art, audio, balance
+    values, Steam).
+  • A rules ambiguity, or a test that reveals a contradiction with the rulebook.
+    (The rulebook wins; never weaken a rules test to go green.)
+  • You need a new runtime dependency, or an architecture / public-engine-API change.
+  • Any open design fork beyond the provisional draft default above.
+  • Three failed attempts at the same task.
+
+HOUSEKEEPING (before M0): if the spec docs are not already at docs/rulebook.md,
+docs/gdd.md, docs/agent-build-plan.md, docs/progress.md, with AGENTS.md at the root,
+move/rename them there. Ensure a root CLAUDE.md exists that imports AGENTS.md
+(a single line: @AGENTS.md) so your operating rules load every session.
+
+DEFINITION OF DONE FOR THIS RUN: M0–M3 complete; lint, typecheck, and the full test
+suite green in CI; determinism, purity, and the 28-point acceptance test all covered
+by passing tests; progress.md updated; and a short summary from you of what's built
+and what the draft-model decision needs from me.
+
+Begin.
