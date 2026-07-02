@@ -42,7 +42,8 @@ namespace Quintessence.UI
 
                 button.gameObject.SetActive(true);
                 button.Initialize(
-                    $"{entry.Die.Element}\n{entry.Die.Face}",
+                    entry.Die.Element,
+                    entry.Die.Face,
                     DieColors.ForElement(entry.Die.Element),
                     () => _controller.ArmDie(DieSource.Firmament, entry.Id, entry.Die));
                 button.SetSelected(selected);

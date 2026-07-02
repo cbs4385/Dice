@@ -41,10 +41,21 @@ namespace Quintessence.UI.Tests
             Assert.That(controller.State, Is.Not.Null, "GameSessionController.State not initialized in time");
         }
 
+        // A round no longer starts automatically (supervisor asked for an explicit
+        // "Start Turn" gate); the roll animation runs in real time
+        // (GameSessionController.RollAnimationSeconds), so tests that need a
+        // populated pool must click it and wait for real seconds, not just frames.
+        private static IEnumerator StartTurnAndWaitForPool()
+        {
+            GameObject.Find("StartTurnButton").GetComponent<Button>().onClick.Invoke();
+            yield return new WaitForSeconds(GameSessionController.RollAnimationSeconds + 0.2f);
+        }
+
         [UnityTest]
         public IEnumerator ArmingPoolDieThenClickingLegalCell_PlacesDieOnBoard()
         {
             var controller = GameObject.Find("GameSession").GetComponent<GameSessionController>();
+            yield return StartTurnAndWaitForPool();
             GameObject.Find("PoolContainer").transform.GetChild(0).GetComponent<Button>().onClick.Invoke();
             yield return null;
 
@@ -70,6 +81,7 @@ namespace Quintessence.UI.Tests
         [UnityTest]
         public IEnumerator ArmedDie_LeavesAtLeastOneIncompatibleElementCellNonInteractable()
         {
+            yield return StartTurnAndWaitForPool();
             GameObject.Find("PoolContainer").transform.GetChild(0).GetComponent<Button>().onClick.Invoke();
             yield return null;
 
@@ -87,6 +99,21 @@ namespace Quintessence.UI.Tests
             // Every board has 4 distinct element cells; a single die's element can
             // match at most one of them, so at least one is always incompatible.
             Assert.That(anyDisabled, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator StartTurnButton_VisibleBeforeClick_HiddenAfterAndPoolIsPopulated()
+        {
+            GameObject startTurnGo = GameObject.Find("StartTurnButton");
+            var controller = GameObject.Find("GameSession").GetComponent<GameSessionController>();
+
+            Assert.That(startTurnGo.activeSelf, Is.True, "Start Turn should be visible before any round starts");
+            Assert.That(controller.State.CurrentPhase, Is.Null);
+
+            yield return StartTurnAndWaitForPool();
+
+            Assert.That(startTurnGo.activeSelf, Is.False, "Start Turn should hide once a round is in progress");
+            Assert.That(controller.State.CurrentPhase, Is.Not.Null);
         }
 
         [UnityTest]
