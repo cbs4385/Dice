@@ -1,0 +1,17 @@
+{
+    "name": "Quintessence.UI",
+    "rootNamespace": "Quintessence.UI",
+    "references": [
+        "Quintessence.Game",
+        "Quintessence.Engine"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
