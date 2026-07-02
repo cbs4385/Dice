@@ -3,7 +3,10 @@
     "rootNamespace": "Quintessence.UI",
     "references": [
         "Quintessence.Game",
-        "Quintessence.Engine"
+        "Quintessence.Engine",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

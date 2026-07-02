@@ -8,6 +8,9 @@
 # Claude Code session/agent-runtime state, not project source.
 .claude/
 
+# UnityMCP debug screenshots (manage_camera screenshot action), not project assets.
+/Assets/Screenshots/
+
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/

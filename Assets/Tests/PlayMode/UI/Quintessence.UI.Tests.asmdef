@@ -1,0 +1,26 @@
+{
+    "name": "Quintessence.UI.Tests",
+    "rootNamespace": "Quintessence.UI.Tests",
+    "references": [
+        "Quintessence.UI",
+        "Quintessence.Game",
+        "Quintessence.Engine",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
