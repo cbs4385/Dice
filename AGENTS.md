@@ -85,7 +85,7 @@ Scaffold, then request review — never silently choose:
 
 - **Feel / juice** (animations, timing, attune flash + sound), **art**, **audio**.
 - **Balance values** (bag composition, band-cell points, empty-cell penalty, favor count, AI weights) — wire as config with defaults; a human sets and playtest-approves the numbers.
-- **The open design forks:** draft model (snake vs simultaneous) and default information depth (bag counts vs counts + odds). Keep the draft model swappable; if the supervisor hasn't specified, escalate before building anything that depends on it.
+- **The remaining open design fork:** default information depth (bag counts vs counts + odds). The draft model was resolved 2026-07-02 — snake is the confirmed choice, not just a provisional default (see `docs/progress.md`). If the supervisor hasn't specified information depth, escalate before building anything that depends on it.
 - **Steam integration** — which Unity Steamworks wrapper to use (e.g. Steamworks.NET vs Facepunch.Steamworks) is an undecided, human-gated dependency choice. Implement against a mocked bridge interface; never touch real credentials.
 
 ## Definition of done (per task)

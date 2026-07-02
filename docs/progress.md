@@ -66,6 +66,13 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - Verification: 13 new EditMode tests, 126/126 total green. AI-sanity tests (seat-alternated to cancel out any first-player advantage): Oracle's win rate vs Novice exceeded the 60% threshold, Oracle vs Adept and Adept vs Novice both exceeded 50% (a coherent Novice < Adept < Oracle strength ladder, not just the one required comparison), and 500 seeds of three-tier mixed games (1500 games) produced zero illegal-move exceptions. All AI-sanity assertions passed on the first run with no tuning needed.
 - **This closes the scope of this run (prompt.txt): M0 through M3 are done, all green locally.** See the summary below for what's next and what needs the supervisor.
 
+### 2026-07-02 — remote added, repo pushed to GitHub
+- Supervisor added `origin` (`https://github.com/cbs4385/Dice.git`), committed a `README.md` on top of the M0-M3 work ("first commit"), and pushed. Confirmed local `main` and `origin/main` are identical (fetched and compared).
+- `.github/workflows/ci.yml` triggers on every push to `main`, so a run is very likely already queued/failed on GitHub for this push - expected, not a regression, since there is still no `UNITY_LICENSE` (or email/password/serial) secret configured. CI will stay red until the supervisor adds it.
+
+### 2026-07-02 — draft-model open question resolved
+- Supervisor confirmed snake drafting is the correct, final draft model (not a placeholder pending a simultaneous-draft alternative). Updated `AGENTS.md`, `docs/agent-build-plan.md` §6, this file's open-questions list, and the code comment on `SnakeDraftOrderStrategy` accordingly. No behavior change - `SnakeDraftOrderStrategy` was already what M2/M3 run on; this only removes the "provisional" framing. `IDraftOrderStrategy` stays in place as an architecture seam, not as an unresolved-decision marker.
+
 **Entry template** (copy for each new session):
 
 ```
@@ -80,7 +87,7 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 
 These block or shape work and must not be resolved by the agent:
 
-1. **Draft model** — snake vs simultaneous same-seed draft. Blocks M4 UI and any netcode. Keep the draft model swappable until decided. **Status (2026-07-02):** implemented behind `IDraftOrderStrategy` in `Quintessence.Game/DraftOrder.cs`; `SnakeDraftOrderStrategy` (forward order for pick 1, reverse for pick 2 - matching the rulebook's literal "draft down" / "draft back" round structure) is wired as the PROVISIONAL default used by `GameReducer`/`SelfPlay`. Not baked into any UI or netcode (none exists yet). Still needs a supervisor decision before M4.
+1. ~~**Draft model** — snake vs simultaneous same-seed draft.~~ **RESOLVED 2026-07-02** — supervisor confirmed snake drafting is correct. `SnakeDraftOrderStrategy` (forward order for pick 1, reverse for pick 2, matching the rulebook's literal "draft down" / "draft back" round structure) in `Quintessence.Game/DraftOrder.cs` is the confirmed draft model, not a placeholder. `IDraftOrderStrategy` remains as an architecture seam (isolating this from future UI/netcode), not because the choice is still open.
 2. **Default information depth** — bag counts only, or bag counts + per-die odds (with the Oracle overlay available either way).
 3. **Doc placement (housekeeping)** — the three companion docs were delivered as `quintessence-rulebook.md`, `quintessence-gdd.md`, and `quintessence-agent-build-plan.md`. Before an agent runs, move them into `docs/` and rename to the paths `AGENTS.md` expects (`docs/rulebook.md`, `docs/gdd.md`, `docs/agent-build-plan.md`). **Resolved 2026-07-02** — docs already present at the expected paths.
 4. **STACK CONFLICT — RESOLVED 2026-07-02.** `agent-build-plan.md` v0.1 §3 mandated TypeScript/pnpm/Tauri, but the repo root is an existing Unity project (`Assets/`, `Packages/`, UnityMCP connected). Supervisor decision: **Unity/C#** (option B). `AGENTS.md` and `docs/agent-build-plan.md` have been rewritten (build plan bumped to v0.2) to target Unity 6000.3.6f1, C# with nullable reference types, and `.asmdef`-based `Engine`/`Game`/`UI` assemblies with `noEngineReferences: true` on `Engine`/`Game` as the compile-time equivalent of the purity + import-boundary lint rules. See Decisions ledger below.
@@ -98,3 +105,4 @@ Ledger of decisions and approvals. Record new ones with a date and, for human-ga
 | 2026-07-02 | Testing: Unity Test Framework (NUnit, EditMode) in place of Vitest; property-style tests hand-rolled as seeded loops in place of fast-check (adding a property-testing NuGet lib would be a new dependency — not done without approval); determinism, purity, and the 28-point example remain required tests | agent-build-plan.md v0.2 §5, §8 |
 | 2026-07-02 | Custom seeded PRNG in `Engine`; `UnityEngine.Random`/`System.Random`/`DateTime.*`/`Time.*` never used in `Engine`/`Game` | agent-build-plan.md v0.2 §3 |
 | 2026-07-02 | CI: GitHub Actions Unity batchmode workflow will be scaffolded, but cannot go green without the supervisor providing a Unity license secret and a git remote — agent verifies locally in the meantime and will say so explicitly rather than imply CI ran | agent-build-plan.md v0.2 §3, §8 |
+| 2026-07-02 | **Draft model: snake, confirmed final** (not provisional) — supervisor approved | supervisor, this session |
