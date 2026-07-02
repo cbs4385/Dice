@@ -48,5 +48,23 @@ namespace Quintessence.Game
 
             return choices;
         }
+
+        public static Die ResolveDie(GameState state, DraftChoice choice)
+        {
+            if (choice.Source == DieSource.Pool)
+            {
+                return ((RoundPhase)state.CurrentPhase!).Pool[choice.Index];
+            }
+
+            foreach (var entry in state.Firmament)
+            {
+                if (entry.Id == choice.Index)
+                {
+                    return entry.Die;
+                }
+            }
+
+            throw new InvalidOperationException("Firmament id not found.");
+        }
     }
 }
