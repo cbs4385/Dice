@@ -14,8 +14,8 @@ Initialized: 2026-07-02
 
 ## Current status
 
-**Milestone:** M3 — done. This run's scope (M0-M3) is complete.
-**Overall:** Stack changed to Unity/C# (supervisor decision, see Decisions). Git repo initialized. Engine/Game/UI asmdefs scaffolded with compile-time purity + import-boundary enforcement, verified working. CI workflow scaffolded (not yet green — no remote/license secret). Engine core (M1), game loop / self-play harness (M2), and the three AI tiers (M3) implemented; 126/126 EditMode tests green.
+**Milestone:** M3 — done. This run's scope (M0-M3) is complete. CI is fully green.
+**Overall:** Stack changed to Unity/C# (supervisor decision, see Decisions). Git repo initialized and pushed to `https://github.com/cbs4385/Dice.git`. Engine/Game/UI asmdefs scaffolded with compile-time purity + import-boundary enforcement, verified working. Engine core (M1), game loop / self-play harness (M2), and the three AI tiers (M3) implemented; 126/126 EditMode tests green locally **and in CI** (GitHub Actions, `UNITY_LICENSE`-activated).
 
 ## Milestone tracker
 
@@ -78,7 +78,7 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - Manual `.alf`/`.ulf` web-portal activation is dead for Personal licenses (confirmed by Unity's own portal). The working path: generate the `.alf` locally (`Unity.exe -batchmode -createManualActivationFile`), then run the third-party CLI tool `unity-license-activate` (`npm install --global unity-license-activate`) **in the supervisor's own terminal, never through the agent**, since it takes the Unity account email/password as command-line arguments - credentials must not pass through agent tool calls or transcripts. That produces a genuine `.ulf`, whose contents became the `UNITY_LICENSE` secret.
 - Result: CI run [28595705171] (attempt 2) - Unity activated online successfully via the `UNITY_LICENSE` secret, and **126/126 EditMode tests passed in CI** (16.7s), matching local results exactly.
 - One unrelated failure remained: `##[error]Resource not accessible by integration` when `game-ci/unity-test-runner`'s `checkName` input tried to publish a GitHub Check run - the default `GITHUB_TOKEN` didn't have `checks: write`. Fixed by adding an explicit `permissions: { contents: read, checks: write }` block to the job in `ci.yml`.
-- **CI is now expected to be fully green** (pending the permissions-fix run). This closes out the CI-activation work that was flagged as an open gap at the end of the M0-M3 run.
+- **Confirmed fully green:** run [28605184852](https://github.com/cbs4385/Dice/actions/runs/28605184852), conclusion `success`, 126/126 EditMode tests passed (22.1s) in the actual GitHub Actions environment. This closes out the CI-activation work that was flagged as an open gap at the end of the M0-M3 run - CI now genuinely enforces the test suite on every push to `main`, not just local verification.
 
 ### 2026-07-02 — draft-model open question resolved
 - Supervisor confirmed snake drafting is the correct, final draft model (not a placeholder pending a simultaneous-draft alternative). Updated `AGENTS.md`, `docs/agent-build-plan.md` §6, this file's open-questions list, and the code comment on `SnakeDraftOrderStrategy` accordingly. No behavior change - `SnakeDraftOrderStrategy` was already what M2/M3 run on; this only removes the "provisional" framing. `IDraftOrderStrategy` stays in place as an architecture seam, not as an unresolved-decision marker.
