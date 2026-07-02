@@ -14,15 +14,15 @@ Initialized: 2026-07-02
 
 ## Current status
 
-**Milestone:** M0 — not started.
-**Overall:** Design docs authored; no code yet. Repo scaffold is the next action.
+**Milestone:** M0 — done. Starting M1 next.
+**Overall:** Stack changed to Unity/C# (supervisor decision, see Decisions). Git repo initialized. Engine/Game/UI asmdefs scaffolded with compile-time purity + import-boundary enforcement, verified working. CI workflow scaffolded (not yet green — no remote/license secret).
 
 ## Milestone tracker
 
 | # | Package | Status | Notes |
 |---|---|---|---|
-| M0 | Repo & tooling scaffold | Not started | Next up |
-| M1 | Engine core | Not started | Blocked on M0. Canonical 28-point test must pass. |
+| M0 | Repo & tooling scaffold | Done | git init'd; Quintessence.Engine/Game/UI asmdefs created (noEngineReferences purity guard verified via a deliberate UnityEngine-reference canary that failed to compile as expected, then reverted); EditMode test assemblies wired and green (2/2); `.github/workflows/ci.yml` scaffolded but needs a git remote + Unity license secret from the supervisor to actually run |
+| M1 | Engine core | Not started | Blocked on M0 (now clear). Canonical 28-point test must pass. |
 | M2 | Game loop & state machine | Not started | Blocked on M1 |
 | M3 | AI opponents (3 tiers) | Not started | Blocked on M2 |
 | M4 | Presentation & input | Not started | Human-gated on feel/visuals. Blocked on draft-model decision. |
@@ -34,10 +34,15 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 
 ## Session log
 
-### 2026-07-02 — project initialized
-- Authored `docs/rulebook.md`, `docs/gdd.md`, `docs/agent-build-plan.md`, `AGENTS.md`, and this file.
-- No source code exists yet.
-- **Next:** M0 — create pnpm workspaces (`engine`, `game`, `ui`, `desktop`); wire lint (incl. import-boundary + engine-purity rules), typecheck, Vitest, build, and CI; get CI green on an empty scaffold.
+### 2026-07-02 — stack changed to Unity/C#; M0 complete
+- Discovered the repo is a Unity project (not the TS/pnpm scaffold the docs assumed) with UnityMCP connected; escalated per AGENTS.md ("architecture change"), supervisor chose Unity/C#.
+- Rewrote `AGENTS.md` and `docs/agent-build-plan.md` (bumped to v0.2) for Unity/C#: `.asmdef`-based `Quintessence.Engine`/`Game`/`UI`, `noEngineReferences: true` + `references` lists as the compile-time purity/import-boundary guard, Unity Test Framework (NUnit) in place of Vitest/fast-check.
+- `git init`'d the repo (none existed before), added a standard Unity `.gitignore`, committed the docs + existing Unity scaffold.
+- M0: created `Quintessence.Engine`, `Quintessence.Game`, `Quintessence.UI` asmdefs and `Quintessence.Engine.Tests`/`Quintessence.Game.Tests` EditMode test asmdefs. Added `csc.rsp` (`-nullable:enable`, warnaserror on nullability codes) to Engine/Game.
+- Verified the purity guard is real, not assumed: temporarily added a `UnityEngine.Debug.Log` call to the Engine assembly, confirmed it fails compile (`CS0103: The name 'UnityEngine' does not exist in the current context`), then reverted. Confirmed a clean compile afterward and both placeholder EditMode tests passing (2/2) via UnityMCP `run_tests`.
+- Scaffolded `.github/workflows/ci.yml` (game-ci Unity EditMode test runner). It cannot go green yet — no git remote and no `UNITY_LICENSE` secret; that setup is on the supervisor.
+- Verification: compile clean (batchmode via UnityMCP `refresh_unity`/`read_console`, zero errors/warnings), EditMode tests green (2/2). CI not yet run (see above — this is expected, not a failure).
+- **Next:** M1 — implement the engine core per build-plan §5, including the canonical 28-point acceptance test.
 
 **Entry template** (copy for each new session):
 
