@@ -1,6 +1,10 @@
 # This .gitignore file should be placed at the root of your Unity project directory
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 
+# Unity manual license activation request/response files - one-time use, not project source.
+*.alf
+*.ulf
+
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
