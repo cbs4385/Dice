@@ -14,15 +14,15 @@ Initialized: 2026-07-02
 
 ## Current status
 
-**Milestone:** M0 — done. Starting M1 next.
-**Overall:** Stack changed to Unity/C# (supervisor decision, see Decisions). Git repo initialized. Engine/Game/UI asmdefs scaffolded with compile-time purity + import-boundary enforcement, verified working. CI workflow scaffolded (not yet green — no remote/license secret).
+**Milestone:** M1 — done. Starting M2 next.
+**Overall:** Stack changed to Unity/C# (supervisor decision, see Decisions). Git repo initialized. Engine/Game/UI asmdefs scaffolded with compile-time purity + import-boundary enforcement, verified working. CI workflow scaffolded (not yet green — no remote/license secret). Engine core (M1) implemented: types, bands, board, legality, scoring, seeded RNG, bag; 84/84 EditMode tests green including the canonical 28-point acceptance test.
 
 ## Milestone tracker
 
 | # | Package | Status | Notes |
 |---|---|---|---|
 | M0 | Repo & tooling scaffold | Done | git init'd; Quintessence.Engine/Game/UI asmdefs created (noEngineReferences purity guard verified via a deliberate UnityEngine-reference canary that failed to compile as expected, then reverted); EditMode test assemblies wired and green (2/2); `.github/workflows/ci.yml` scaffolded but needs a git remote + Unity license secret from the supervisor to actually run |
-| M1 | Engine core | Not started | Blocked on M0 (now clear). Canonical 28-point test must pass. |
+| M1 | Engine core | Done | Element/Sides/Die/Band/BandRange/Cell/Board/Placement/IRng+splitmix64/Bag/Favor/Scoring/BoardLayouts implemented in `Quintessence.Engine`. 84/84 EditMode tests green: boundary faces, every illegal-placement reason (incl. Defy bypassing only element-adjacency), determinism (RNG + BagOps, seed-golden test), a hand-rolled placement-invariant property test (200 seeds), all 6 public objective formulas, and the canonical 28-point Ashfall/Deep-Columns acceptance test (placed through the real legality pipeline, not just asserted). Found and fixed a real bug along the way: `Bag`'s compiler-generated record equality silently did reference equality on its `Dictionary` property; added explicit value equality. |
 | M2 | Game loop & state machine | Not started | Blocked on M1 |
 | M3 | AI opponents (3 tiers) | Not started | Blocked on M2 |
 | M4 | Presentation & input | Not started | Human-gated on feel/visuals. Blocked on draft-model decision. |
@@ -43,6 +43,15 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - Scaffolded `.github/workflows/ci.yml` (game-ci Unity EditMode test runner). It cannot go green yet — no git remote and no `UNITY_LICENSE` secret; that setup is on the supervisor.
 - Verification: compile clean (batchmode via UnityMCP `refresh_unity`/`read_console`, zero errors/warnings), EditMode tests green (2/2). CI not yet run (see above — this is expected, not a failure).
 - **Next:** M1 — implement the engine core per build-plan §5, including the canonical 28-point acceptance test.
+
+### 2026-07-02 — M1 engine core complete
+- Implemented the full §5 contract in `Quintessence.Engine`: `Element`/`Sides`/`Elements`, `Die`, `Band`/`BandRange`/`Bands` (with `CanReach`), `Cell` (closed hierarchy via private-constructor trick), `Board` (immutable, `WithPlacement` returns a new instance), `Placement`, `IRng`/`Rng.Create` (splitmix64, never `System.Random`/`UnityEngine.Random`), `Bag`/`BagOps.DrawRoll` (without replacement), `Favor.Adjust`/`Reroll`, `Scoring`/`ScoringConfig`/`PublicObjective` (all 6 rulebook objectives), `BoardLayouts` (all 4 named boards).
+- Discovered Unity 6000.3.6f1 defaults to C# 9 (not 10): `record struct` fails with `CS8773`. Switched `Die`/`Placement`/`LegalityResult` to reference-type `sealed record`. Also hit `CS0518` because Unity's reference assemblies lack `IsExternalInit`; added the standard local shim (`CompilerShims.cs` in both Engine and Game). Both are now noted in `agent-build-plan.md` §3 so future sessions don't rediscover them.
+- Verified (not just assumed) two compile-time guards by deliberately breaking them and reverting: (1) a `UnityEngine.Debug.Log` call in Engine fails with `CS0103` as expected (purity guard); (2) a nullable-violation canary fails with `CS8603` as expected (nullable warnings-as-errors guard).
+- Found and fixed a real bug via the test suite: `Bag`'s record-generated `Equals` compared its `IReadOnlyDictionary<Element,int>` property with `EqualityComparer<T>.Default`, which is reference equality for `Dictionary` - two content-identical bags from independent draws were reported unequal. Added an explicit value-equality `Equals`/`GetHashCode` override. This is exactly the kind of bug the determinism tests exist to catch.
+- Reconstructed the rulebook's worked example (Board α "Ashfall", objective "Deep Columns", total 28) as one concrete, fully-legal board, since the rulebook states the *outcome* (bands satisfied, which column repeats, private-element count, favor spend) rather than a cell-by-cell diagram. Placed it through the real `Legality`/`Board` pipeline (one placement needs a Defy favor, matching the rulebook's "spent 2" favor tokens) rather than only asserting the score, so the reconstruction is provably reachable. Total: exactly 28.
+- Verification: 84/84 EditMode tests green (unit tests incl. every illegal-placement reason and boundary faces; a hand-rolled seeded property test - no FsCheck, per the "no new dependency without approval" rule - checking 200 random legal-placement sequences never violate element-adjacency and are deterministic per seed; a golden RNG sequence for seed 42 to guard Daily reproducibility; the canonical 28-point test). Compile clean in batchmode. CI still not run (needs remote + license secret, per M0 note).
+- **Next:** M2 — round loop / state machine (drafting behind a swappable strategy interface, snake as PROVISIONAL default per the run's working rules), Firmament, favor, scoring as a pure reducer; headless self-play harness.
 
 **Entry template** (copy for each new session):
 

@@ -42,7 +42,7 @@ Quintessence is a turn-based dice-placement game for Steam (Windows/Linux/Steam 
 ## 3. Technology decisions (decided — do not revisit without approval)
 
 - **Engine:** Unity **6000.3.6f1** (pinned in `ProjectSettings/ProjectVersion.txt`). Do not upgrade without approval.
-- **Language:** C#, nullable reference types enabled and treated as warnings-as-errors in `Quintessence.Engine` and `Quintessence.Game`.
+- **Language:** C# 9 (Unity 6000.3.6f1's default `langversion`; confirmed by hitting `CS8773` on `record struct`, which needs C# 10). Use reference-type `record`/`sealed record`, not `record struct`. Nullable reference types are enabled and treated as warnings-as-errors in `Quintessence.Engine` and `Quintessence.Game` via a `csc.rsp` in each folder (`-nullable:enable -warnaserror+:CS8600,...`) - verified live by temporarily introducing a nullable violation and confirming it fails compile. Unity's reference assemblies also predate `System.Runtime.CompilerServices.IsExternalInit` (needed for record `init` accessors); each assembly that uses records carries a small local shim type of that name (see `CompilerShims.cs`) rather than pulling in a package for it.
 - **Modularity:** Unity Assembly Definitions (`.asmdef`), not a package-manager monorepo: `Quintessence.Engine`, `Quintessence.Game`, `Quintessence.UI` (+ mirrored `.Tests` assemblies). See §4.
 - **Purity/import-boundary enforcement:** `Quintessence.Engine.asmdef` has `"noEngineReferences": true` and `"references": []`. `Quintessence.Game.asmdef` has `"noEngineReferences": true` and `"references": ["Quintessence.Engine"]`. Neither can physically reference `UnityEngine` or `Quintessence.UI` — the compiler enforces the boundary that a lint rule would enforce in a JS/TS repo.
 - **Rendering (later, M4+):** `Quintessence.UI`, uGUI and/or UI Toolkit (already present via `com.unity.ugui`/`com.unity.modules.uielements`). Depends on `Game` and `Engine`; **`Engine` and `Game` depend on nothing in `UI`**.
@@ -97,7 +97,7 @@ public static class Sides
     public static int Of(Element element);
 }
 
-public readonly record struct Die(Element Element, int Face); // 1..Sides.Of(Element)
+public sealed record Die(Element Element, int Face); // 1..Sides.Of(Element)
 
 public enum Band { Low, Mid, High, Celestial }
 
@@ -120,7 +120,7 @@ public sealed class Board
     public required Die?[,] Dice { get; init; }
 }
 
-public readonly record struct Placement(int Row, int Col, Die Die);
+public sealed record Placement(int Row, int Col, Die Die);
 
 public interface IRng { int NextInt(int maxExclusive); }
 public static class Rng { public static IRng Create(long seed); }   // deterministic
