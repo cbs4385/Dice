@@ -2,6 +2,7 @@ using System.Text;
 using TMPro;
 using UnityEngine;
 using Quintessence.Engine;
+using Quintessence.Game.Clash;
 
 namespace Quintessence.UI
 {
@@ -40,7 +41,13 @@ namespace Quintessence.UI
             for (int i = 0; i < state.Players.Count; i++)
             {
                 var player = state.Players[i];
-                int score = Scoring.ScoreBoard(player.Board, state.Objective, player.PrivateElement, player.FavorRemaining);
+                // Eclipse's nullify-a-band-cell effect only exists in Clash; a plain
+                // Scoring.ScoreBoard call would silently ignore it and overstate the
+                // score of anyone Eclipsed. Found by actually playing a Clash match
+                // to completion, not by inspection.
+                int score = state.Clash is not null
+                    ? ClashScoring.ScoreBoardWithNullifications(player.Board, state.Objective, player.PrivateElement, player.FavorRemaining, state.Clash.NullifiedBandCells, forPlayer: i)
+                    : Scoring.ScoreBoard(player.Board, state.Objective, player.PrivateElement, player.FavorRemaining);
                 sb.Append(i == 0 ? "You: " : "AI: ").Append(score).Append('\n');
             }
 
