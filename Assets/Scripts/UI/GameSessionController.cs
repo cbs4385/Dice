@@ -13,11 +13,11 @@ namespace Quintessence.UI
     // "armed" selection, driven entirely through this controller.
     public sealed class GameSessionController : MonoBehaviour
     {
-        // Total duration of DiceRollController's physics roll (tumble + snap +
-        // hold) - how long to wait before the pool is real and AI turns may
-        // resolve. A placeholder pacing value, not a tuned "feel" decision - see
-        // AGENTS.md on feel/juice.
-        public const float RollAnimationSeconds = 1.8f;
+        // Total duration of DiceRollController's physics roll (precomputed
+        // tumble playback + hold + fly-to-tray) - how long to wait before the
+        // pool is real and AI turns may resolve. A placeholder pacing value, not
+        // a tuned "feel" decision - see AGENTS.md on feel/juice.
+        public const float RollAnimationSeconds = 1.85f;
 
         private const int HumanPlayerIndex = 0;
 

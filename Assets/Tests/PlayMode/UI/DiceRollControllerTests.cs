@@ -13,10 +13,11 @@ namespace Quintessence.UI.Tests
     // Loads the real MainPlay scene and drives a genuine roll through
     // GameSessionController.StartTurn(), the same way a player would - not a
     // synthetic DiceRollDie instantiated in isolation - to prove the actual
-    // integrated pipeline (spawn -> physics -> snap -> cleanup -> pool buttons)
-    // works end to end, and that "physics for show, guaranteed outcome" really
-    // holds: whatever GameReducer/Bag determined is what ends up both on each
-    // settled 3D die's face and in the resulting 2D pool button.
+    // integrated pipeline (precompute -> reversed playback -> fly to tray ->
+    // cleanup -> pool buttons) works end to end, and that "physics for show,
+    // guaranteed outcome" really holds: whatever GameReducer/Bag determined is
+    // what ends up both on each settled 3D die's face and in the resulting 2D
+    // pool button.
     public class DiceRollControllerTests
     {
         private const string ScenePath = "Assets/Scenes/MainPlay.unity";
@@ -80,29 +81,35 @@ namespace Quintessence.UI.Tests
         }
 
         [UnityTest]
-        public IEnumerator DiceRollDie_SnapToFace_ActuallyOrientsTheCorrectFaceUpward()
+        public IEnumerator DiceRollDie_RotationForFace_ActuallyOrientsTheCorrectFaceUpward()
         {
-            // A focused, non-integration check of the face-snap math itself:
-            // spawn one physics die directly, let it tumble briefly under real
-            // physics (so this isn't just testing a kinematic no-op), then snap
-            // it to a specific face and verify that face's world-space normal
-            // really points up - the exact contract DiceRollController depends on.
+            // A focused, non-integration check of the underlying rotation math
+            // DiceRollController's reverse-simulation trick depends on: whatever
+            // rotation RotationForFace(face) returns must genuinely put that
+            // face's up-direction at world-up when applied - this is the exact
+            // pose precompute starts every trajectory from (see
+            // DiceRollController.PrecomputeReversedTrajectories), so if this
+            // rotation were wrong, every roll would end on the wrong face
+            // regardless of how good the physics playback looked.
             var diePrefabAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/DiceRollDie.prefab");
             var dieGo = Object.Instantiate(diePrefabAsset);
             var die = dieGo.GetComponent<DiceRollDie>();
             var meshResult = PlatonicSolidMeshFactory.Build(Sides.Of(Element.Water));
             die.Configure(meshResult, null);
-            die.Launch(new Vector3(0, 5, 0), new Vector3(3, 0, 2), new Vector3(200, 250, 180));
-
-            yield return new WaitForSeconds(0.3f);
+            // Without this, the die's non-kinematic, gravity-affected Rigidbody
+            // can move/rotate it during the yield below, independent of the
+            // rotation this test sets directly - found live (a spurious ~0 dot
+            // product), not a bug in RotationForFace itself.
+            die.SetKinematic(true);
 
             const int targetFace = 7;
-            yield return die.StartCoroutine(die.SnapToFace(targetFace, restHeight: 0.6f, duration: 0.3f));
+            dieGo.transform.rotation = die.RotationForFace(targetFace);
+            yield return null;
 
             Vector3 localUp = meshResult.UpDirections[targetFace - 1];
             Vector3 worldUp = dieGo.transform.rotation * localUp;
             Assert.That(Vector3.Dot(worldUp, Vector3.up), Is.GreaterThan(0.99f),
-                "the requested face's up-direction must point world-up once settled");
+                "the requested face's up-direction must point world-up under RotationForFace");
 
             Object.Destroy(dieGo);
         }
