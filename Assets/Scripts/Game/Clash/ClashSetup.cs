@@ -28,7 +28,8 @@ namespace Quintessence.Game.Clash
                 InterventionsAvailable: dealt,
                 PetrifyTokens: new List<PetrifyToken>(),
                 Pending: null,
-                InterventionLog: new List<ClashLogEntry>());
+                InterventionLog: new List<ClashLogEntry>(),
+                NullifiedBandCells: new List<NullifiedCell>());
         }
     }
 }

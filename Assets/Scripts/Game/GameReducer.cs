@@ -24,6 +24,8 @@ namespace Quintessence.Game
                 throw new InvalidOperationException("Cannot start a round while a phase is in progress.");
             }
 
+            RequireNoPendingIntervention(state);
+
             int playerCount = state.Players.Count;
             int poolSize = (2 * playerCount) + 1;
             var (pool, bag) = BagOps.DrawRoll(state.Bag, rng, poolSize);
@@ -45,6 +47,7 @@ namespace Quintessence.Game
         public static GameState ApplyDraft(GameState state, DraftChoice choice, IRng rng)
         {
             var phase = RequirePhase(state);
+            RequireNoPendingIntervention(state);
             int player = phase.PickOrder[phase.PickOrderIndex];
             var playerState = state.Players[player];
 
@@ -96,6 +99,13 @@ namespace Quintessence.Game
                 throw new InvalidOperationException($"Illegal placement: {legality.Reason}");
             }
 
+            // Composed on top of (never replacing) the core Legality check - Petrify
+            // is a Game-layer, Clash-only concept; Engine stays Clash-unaware.
+            if (ClashReducer.IsCellPetrified(state.Clash, player, choice.Row, choice.Col, state.Round))
+            {
+                throw new InvalidOperationException("Illegal placement: cell is Petrified.");
+            }
+
             int favorSpent = choice.Favor is not null ? 1 : 0;
 
             var updatedPlayers = state.Players.ToList();
@@ -129,6 +139,7 @@ namespace Quintessence.Game
         public static GameState ApplyForfeit(GameState state)
         {
             RequirePhase(state);
+            RequireNoPendingIntervention(state);
             return AdvanceTurn(state);
         }
 
@@ -179,6 +190,18 @@ namespace Quintessence.Game
             }
 
             return phase;
+        }
+
+        // Ensures a declared intervention's legality (validated once at declare
+        // time, per docs/clash.md SS2.3 "legal-by-construction") cannot go stale:
+        // no other reducer action may change board/pool/Firmament state while a
+        // response (Ward/DeclineWard/Eclipse-cancel) is outstanding.
+        private static void RequireNoPendingIntervention(GameState state)
+        {
+            if (state.Clash?.Pending is not null)
+            {
+                throw new InvalidOperationException("A Clash intervention is pending; resolve it before any other action.");
+            }
         }
     }
 }

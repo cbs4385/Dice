@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Quintessence.Engine;
+using Quintessence.Game.Clash;
 
 namespace Quintessence.Game
 {
@@ -12,8 +13,11 @@ namespace Quintessence.Game
     {
         public static IReadOnlyList<DraftChoice> EnumerateSimple(GameState state)
         {
-            if (state.CurrentPhase is not RoundPhase phase)
+            if (state.CurrentPhase is not RoundPhase phase || state.Clash?.Pending is not null)
             {
+                // A pending Clash intervention must be resolved (Ward/DeclineWard/
+                // Eclipse-cancel) before any normal draft can proceed - see
+                // GameReducer.RequireNoPendingIntervention.
                 return Array.Empty<DraftChoice>();
             }
 
@@ -27,6 +31,11 @@ namespace Quintessence.Game
                 {
                     for (int c = 0; c < Board.Columns; c++)
                     {
+                        if (ClashReducer.IsCellPetrified(state.Clash, player, r, c, state.Round))
+                        {
+                            continue;
+                        }
+
                         var placement = new Placement(r, c, die);
                         if (Legality.IsLegalPlacement(board, placement).IsLegal)
                         {

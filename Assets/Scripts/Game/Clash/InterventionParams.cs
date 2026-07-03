@@ -13,9 +13,14 @@ namespace Quintessence.Game.Clash
 
         public sealed record Scorch(int TargetPlayer, int Row, int Col, int Pips) : InterventionParams;
 
-        public sealed record Riptide(int FirmamentId) : InterventionParams;
+        // Shared-pool reinterpretation (see docs/progress.md): "steal" means the
+        // actor immediately drafts the chosen Firmament die onto their own board,
+        // out of turn - the same shape as Gust, sourcing the Firmament instead of
+        // the pool, rather than a bank-to-bank transfer that no longer makes sense
+        // once there is only one Firmament.
+        public sealed record Riptide(int FirmamentId, int Row, int Col) : InterventionParams;
 
-        public sealed record Gust(int PoolIndex) : InterventionParams;
+        public sealed record Gust(int PoolIndex, int Row, int Col) : InterventionParams;
 
         public sealed record Petrify(int TargetPlayer, int Row, int Col) : InterventionParams;
 

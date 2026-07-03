@@ -15,5 +15,6 @@ namespace Quintessence.Game.Clash
         IReadOnlyList<InterventionKind> InterventionsAvailable,
         IReadOnlyList<PetrifyToken> PetrifyTokens,
         PendingIntervention? Pending,
-        IReadOnlyList<ClashLogEntry> InterventionLog);
+        IReadOnlyList<ClashLogEntry> InterventionLog,
+        IReadOnlyList<NullifiedCell> NullifiedBandCells);
 }
