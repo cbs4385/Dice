@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Quintessence.Engine;
+using Quintessence.Game.Clash;
 
 namespace Quintessence.Game
 {
@@ -18,5 +19,9 @@ namespace Quintessence.Game
         PublicObjective Objective,
         RoundPhase? CurrentPhase,
         int NextFirmamentId,
-        bool IsGameOver);
+        bool IsGameOver,
+        // Clash-only state; null in every other mode (docs/clash.md SS0 prime directive:
+        // non-Clash modes must stay byte-identical). Every existing caller of
+        // GameSetup.NewGame doesn't pass a ClashConfig, so this is always null for them.
+        ClashState? Clash = null);
 }

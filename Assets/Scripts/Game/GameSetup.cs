@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Quintessence.Engine;
+using Quintessence.Game.Clash;
 
 namespace Quintessence.Game
 {
@@ -11,7 +12,10 @@ namespace Quintessence.Game
             BoardLayouts.Ashfall, BoardLayouts.Tidewater, BoardLayouts.Zephyr, BoardLayouts.Bedrock,
         };
 
-        public static GameState NewGame(int playerCount, IRng rng, int startingFavor = 3)
+        // clashConfig defaults to null: every existing caller is unaffected and
+        // State.Clash stays null, exactly like every other mode (see AGENTS.md /
+        // docs/clash.md SS0 - non-Clash modes must stay byte-identical).
+        public static GameState NewGame(int playerCount, IRng rng, int startingFavor = 3, ClashConfig? clashConfig = null)
         {
             if (playerCount < 2 || playerCount > 4)
             {
@@ -30,6 +34,8 @@ namespace Quintessence.Game
                 players.Add(new PlayerState(board, startingFavor, privateElement));
             }
 
+            ClashState? clashState = clashConfig is null ? null : ClashSetup.Deal(playerCount, clashConfig, rng);
+
             return new GameState(
                 Round: 1,
                 StartPlayerIndex: 0,
@@ -39,10 +45,11 @@ namespace Quintessence.Game
                 Objective: objective,
                 CurrentPhase: null,
                 NextFirmamentId: 0,
-                IsGameOver: false);
+                IsGameOver: false,
+                Clash: clashState);
         }
 
-        private static int[] Shuffle(int[] values, IRng rng)
+        internal static int[] Shuffle(int[] values, IRng rng)
         {
             var array = (int[])values.Clone();
             for (int i = array.Length - 1; i > 0; i--)
