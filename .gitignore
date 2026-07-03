@@ -10,6 +10,7 @@
 
 # UnityMCP debug screenshots (manage_camera screenshot action), not project assets.
 /Assets/Screenshots/
+/Assets/Screenshots.meta
 
 /[Ll]ibrary/
 /[Tt]emp/

@@ -3925,8 +3925,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77aea963abe433840aabba39b80808eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Quintessence.UI::Quintessence.UI.GameSessionController
-  _enableClashForTesting: 0
-  _testClashInterventionCost: 4
+  _enableClashForTesting: 1
+  _testClashInterventionCost: 1
 --- !u!4 &2081856198
 Transform:
   m_ObjectHideFlags: 0
