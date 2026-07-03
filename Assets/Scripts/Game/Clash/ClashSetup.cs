@@ -23,6 +23,7 @@ namespace Quintessence.Game.Clash
             var storm = new List<int>(new int[playerCount]);
 
             return new ClashState(
+                Config: config,
                 Storm: storm,
                 InterventionsAvailable: dealt,
                 PetrifyTokens: new List<PetrifyToken>(),

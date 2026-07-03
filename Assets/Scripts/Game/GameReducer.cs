@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Quintessence.Engine;
+using Quintessence.Game.Clash;
 
 namespace Quintessence.Game
 {
@@ -104,11 +105,22 @@ namespace Quintessence.Game
                 FavorRemaining = playerState.FavorRemaining - favorSpent,
             };
 
+            // Gated Clash touch-point: no-op whenever state.Clash is null, so this
+            // can never affect non-Clash play (see ClashRegressionTests).
+            var clashState = state.Clash;
+            if (clashState is not null
+                && playerState.Board.CellAt(choice.Row, choice.Col) is Cell.BandCell bandCell
+                && Bands.Of(finalDie.Face) == bandCell.Band)
+            {
+                clashState = ClashReducer.ChargeStormOnAttune(clashState, player);
+            }
+
             var updatedState = state with
             {
                 Players = updatedPlayers,
                 Firmament = newFirmament,
                 CurrentPhase = phase with { Pool = newPool },
+                Clash = clashState,
             };
 
             return AdvanceTurn(updatedState);
