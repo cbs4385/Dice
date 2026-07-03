@@ -30,7 +30,7 @@ namespace Quintessence.UI.Tests
             // PlayMode session (Unity does not guarantee the reload settles in exactly
             // one frame); wait until GameSessionController has actually initialized.
             GameSessionController controller = null;
-            for (int i = 0; i < 60 && controller?.State == null; i++)
+            for (int i = 0; i < 60 && controller == null; i++)
             {
                 yield return null;
                 GameObject sessionGo = GameObject.Find("GameSession");
@@ -38,6 +38,13 @@ namespace Quintessence.UI.Tests
             }
 
             Assert.That(controller, Is.Not.Null, "GameSession not found after scene load");
+
+            // The game no longer auto-starts (docs/clash.md C6: a real mode choice
+            // now exists) - these tests exercise Standard play, so pick it via the
+            // real button the same way ArmDie/ConfirmPlacement etc. are driven.
+            GameObject.Find("StandardModeButton").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+
             Assert.That(controller.State, Is.Not.Null, "GameSessionController.State not initialized in time");
         }
 

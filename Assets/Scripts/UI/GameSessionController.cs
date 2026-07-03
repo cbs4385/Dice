@@ -49,15 +49,18 @@ namespace Quintessence.UI
         // State.Clash?.Pending is always null for non-Clash games, so this extra
         // condition is a provable no-op there - it only ever matters once Clash is
         // enabled, where it correctly freezes drafting until a Ward/Decline prompt
-        // targeting the human is answered.
+        // targeting the human is answered. Null-safe on State itself: unlike every
+        // earlier session, State can now legitimately stay null for a real,
+        // extended "waiting at mode-select" period (see StartStandardMatch/
+        // StartClashMatch), not just a one-frame Awake/OnEnable race.
         public bool IsHumanTurn =>
-            !State.IsGameOver && State.CurrentPhase is not null
+            State is not null && !State.IsGameOver && State.CurrentPhase is not null
             && GameReducer.CurrentPlayer(State) == HumanPlayerIndex
             && State.Clash?.Pending is null;
 
-        public bool AwaitingTurnStart => !State.IsGameOver && State.CurrentPhase is null;
+        public bool AwaitingTurnStart => State is not null && !State.IsGameOver && State.CurrentPhase is null;
 
-        public bool HumanHasPendingResponse => State.Clash?.Pending?.Target == HumanPlayerIndex;
+        public bool HumanHasPendingResponse => State?.Clash?.Pending?.Target == HumanPlayerIndex;
 
         private void Awake()
         {
@@ -67,10 +70,44 @@ namespace Quintessence.UI
             // themselves must never touch platform time (enforced by noEngineReferences).
             // Daily mode would instead inject a published fixed seed here.
             _rng = Rng.Create(DateTime.Now.Ticks);
-            ClashConfig clashConfig = _enableClashForTesting
-                ? ClashConfig.Default with { InterventionCost = _testClashInterventionCost }
-                : null;
-            State = GameSetup.NewGame(2, _rng, clashConfig: clashConfig);
+
+            // Testing seam only: ClashPlayTest.unity flips this to auto-start a
+            // Clash match immediately, bypassing mode-select, because reaching the
+            // *real* interventionCost through undirected play is rare by design
+            // (confirmed in C4: 0/1200 games) - impractical to set up per-test.
+            // MainPlay.unity keeps this false, so a real player chooses a mode via
+            // ModeSelectView / StartStandardMatch / StartClashMatch below.
+            if (_enableClashForTesting)
+            {
+                State = GameSetup.NewGame(2, _rng, clashConfig: ClashConfig.Default with { InterventionCost = _testClashInterventionCost });
+                StateChanged?.Invoke();
+            }
+        }
+
+        public void StartStandardMatch()
+        {
+            if (State is not null)
+            {
+                return;
+            }
+
+            State = GameSetup.NewGame(2, _rng);
+            StateChanged?.Invoke();
+        }
+
+        // Uses ClashConfig.Default as-is - the real, provisional, untuned balance
+        // values from docs/clash.md SS2.4, not a lowered test-convenience cost.
+        // Balance tuning is human-gated (AGENTS.md); this is scaffolding that makes
+        // Clash reachable for a human to actually playtest and judge, not a
+        // decision that the current numbers are good.
+        public void StartClashMatch()
+        {
+            if (State is not null)
+            {
+                return;
+            }
+
+            State = GameSetup.NewGame(2, _rng, clashConfig: ClashConfig.Default);
             StateChanged?.Invoke();
         }
 
