@@ -13,10 +13,11 @@ namespace Quintessence.UI
     // "armed" selection, driven entirely through this controller.
     public sealed class GameSessionController : MonoBehaviour
     {
-        // Roughly matches the roll-cycle duration DieButton.PlayRollAnimation uses,
-        // so AI turns don't start resolving mid-animation. A placeholder pacing
-        // value, not a tuned "feel" decision - see AGENTS.md on feel/juice.
-        public const float RollAnimationSeconds = 0.9f;
+        // Total duration of DiceRollController's physics roll (tumble + snap +
+        // hold) - how long to wait before the pool is real and AI turns may
+        // resolve. A placeholder pacing value, not a tuned "feel" decision - see
+        // AGENTS.md on feel/juice.
+        public const float RollAnimationSeconds = 1.8f;
 
         private const int HumanPlayerIndex = 0;
 
@@ -61,6 +62,14 @@ namespace Quintessence.UI
         public bool AwaitingTurnStart => State is not null && !State.IsGameOver && State.CurrentPhase is null;
 
         public bool HumanHasPendingResponse => State?.Clash?.Pending?.Target == HumanPlayerIndex;
+
+        // True from StartTurn() until DiceRollController's physics roll finishes
+        // and calls NotifyRollComplete(). PoolView uses this to avoid rendering
+        // the real, clickable pool buttons while the roll is still playing -
+        // there is no coroutine racing to cancel here anymore (see
+        // docs/progress.md for the bug this replaced), just one authoritative
+        // completion signal.
+        public bool IsRollInProgress { get; private set; }
 
         private void Awake()
         {
@@ -119,9 +128,18 @@ namespace Quintessence.UI
             }
 
             State = GameReducer.StartRound(State, _rng);
+            IsRollInProgress = true;
             StateChanged?.Invoke();
             RoundStarted?.Invoke(State.CurrentPhase.Pool);
-            StartCoroutine(RollThenAdvance());
+        }
+
+        // Called exactly once, by DiceRollController, when its physics roll
+        // finishes settling every die on its predetermined face.
+        public void NotifyRollComplete()
+        {
+            IsRollInProgress = false;
+            StateChanged?.Invoke();
+            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
 
         public void ArmDie(DieSource source, int index, Die die)
@@ -197,12 +215,6 @@ namespace Quintessence.UI
 
             State = ClashReducer.DeclineWard(State, HumanPlayerIndex);
             StateChanged?.Invoke();
-            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
-        }
-
-        private IEnumerator RollThenAdvance()
-        {
-            yield return new WaitForSeconds(RollAnimationSeconds);
             AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
 
