@@ -9,6 +9,20 @@ namespace Quintessence.UI
         [SerializeField] private CellButton _cellButtonPrefab;
         [SerializeField] private Transform _container;
 
+        // Matches GameSessionController's own HumanPlayerIndex (private there,
+        // so not directly shared) - index 0 was already implicitly "the human"
+        // before this view could show any other player; ShowPlayer makes that
+        // explicit instead of hardcoding it into Render.
+        private const int HumanPlayerIndex = 0;
+
+        // Serialized (not just settable via ShowPlayer) so each BoardView
+        // instance placed in the scene - one per player, shown simultaneously
+        // - keeps its own assigned player across a scene save/reload. A
+        // private, non-serialized default here was a real bug found live:
+        // every BoardView instance silently rendered player 0's board because
+        // nothing had ever actually changed this value away from its default.
+        [SerializeField] private int _playerIndex = HumanPlayerIndex;
+
         private readonly CellButton[,] _cells = new CellButton[Board.Rows, Board.Columns];
 
         private void OnEnable()
@@ -22,18 +36,28 @@ namespace Quintessence.UI
             _controller.StateChanged -= Render;
         }
 
+        // Switches which player's board this view displays (e.g. wired to
+        // "Your Board" / "AI Board" toggle buttons) and re-renders immediately.
+        // Viewing anyone other than the human is automatically read-only - see
+        // IsLegalTarget - since it wouldn't make sense to place the human's
+        // drafted dice onto an opponent's board.
+        public void ShowPlayer(int playerIndex)
+        {
+            _playerIndex = playerIndex;
+            Render();
+        }
+
         private void Render()
         {
             // GameSessionController.Awake() may run after this OnEnable (Unity does
             // not guarantee cross-GameObject Awake/OnEnable order); bail until State
             // exists, and rely on the StateChanged event fired at the end of its Awake.
-            if (_controller.State is null)
+            if (_controller.State is null || _playerIndex >= _controller.State.Players.Count)
             {
                 return;
             }
 
-            // Slice 1 is human (seat 0) vs one AI - always show the human's board.
-            var board = _controller.State.Players[0].Board;
+            var board = _controller.State.Players[_playerIndex].Board;
 
             for (int r = 0; r < Board.Rows; r++)
             {
@@ -59,7 +83,7 @@ namespace Quintessence.UI
 
         private bool IsLegalTarget(Board board, int row, int col, Die existingDie)
         {
-            if (!_controller.IsHumanTurn || existingDie is not null || _controller.ArmedDie is not Die armed)
+            if (_playerIndex != HumanPlayerIndex || !_controller.IsHumanTurn || existingDie is not null || _controller.ArmedDie is not Die armed)
             {
                 return false;
             }

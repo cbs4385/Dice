@@ -17,7 +17,7 @@ namespace Quintessence.UI
         // tumble playback + hold + fly-to-tray) - how long to wait before the
         // pool is real and AI turns may resolve. A placeholder pacing value, not
         // a tuned "feel" decision - see AGENTS.md on feel/juice.
-        public const float RollAnimationSeconds = 1.85f;
+        public const float RollAnimationSeconds = 3.65f;
 
         private const int HumanPlayerIndex = 0;
 
