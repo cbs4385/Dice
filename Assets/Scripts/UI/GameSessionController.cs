@@ -5,6 +5,8 @@ using UnityEngine;
 using Quintessence.Engine;
 using Quintessence.Game;
 using Quintessence.Game.Clash;
+using Quintessence.Game.Network;
+using Quintessence.UI.Network;
 
 namespace Quintessence.UI
 {
@@ -19,15 +21,33 @@ namespace Quintessence.UI
         // a tuned "feel" decision - see AGENTS.md on feel/juice.
         public const float RollAnimationSeconds = 3.65f;
 
-        // Which seats are human-controlled (local hotseat - the rest are AI),
-        // set by the player-setup screen via ConfigureMatch before
-        // StartStandardMatch/StartClashMatch. Defaults to the old fixed
-        // "2 players, seat 0 human, seat 1 AI" shape so any caller that skips
-        // ConfigureMatch (existing tests, ClashPlayTest.unity's auto-start)
-        // keeps its previous behavior unchanged.
-        private bool[] _isHumanSlot = { true, false };
+        // Whether a seat is AI, a human seat this client directly controls
+        // (local hotseat), or a human seat controlled by a remote peer over
+        // the network. RemoteHuman isn't reachable yet - PlayerSetupView only
+        // offers AI/Local today via ConfigureMatch's existing bool[] shape -
+        // but every action already routes through the network bridge below,
+        // so wiring in a real remote seat later needs no further change here.
+        public enum SeatControl { Ai, LocalHuman, RemoteHuman }
 
-        public bool IsHumanSlot(int playerIndex) => playerIndex >= 0 && playerIndex < _isHumanSlot.Length && _isHumanSlot[playerIndex];
+        // Defaults to the old fixed "2 players, seat 0 human, seat 1 AI" shape
+        // so any caller that skips ConfigureMatch (existing tests,
+        // ClashPlayTest.unity's auto-start) keeps its previous behavior unchanged.
+        private SeatControl[] _seatControl = { SeatControl.LocalHuman, SeatControl.Ai };
+
+        // "Is this seat human at all" (on any client) - used by UI labeling
+        // (Player N (You)/(AI)) and by the AI-advance loop below to decide
+        // whether a seat should ever be auto-resolved by this client's AI
+        // policy. Unrelated to whether *this* client controls the seat.
+        public bool IsHumanSlot(int playerIndex) =>
+            playerIndex >= 0 && playerIndex < _seatControl.Length && _seatControl[playerIndex] != SeatControl.Ai;
+
+        // "Do I (this client) directly control this seat's input" - what
+        // gates ArmDie/ConfirmPlacement/etc. accepting a local click. A
+        // remote human seat is still human (IsHumanSlot true) but not local -
+        // this client must never mutate GameState on that seat's behalf from
+        // a local click, only from a received NetworkAction.
+        private bool IsLocalSeat(int playerIndex) =>
+            playerIndex >= 0 && playerIndex < _seatControl.Length && _seatControl[playerIndex] == SeatControl.LocalHuman;
 
         // Testing seam, NOT mode wiring (docs/clash.md C6 is human-gated and not
         // started): stays false in the shipped MainPlay.unity, so the real game is
@@ -53,6 +73,15 @@ namespace Quintessence.UI
         private IAiPolicy _aiPolicy;
         private ClashAiPolicy _clashAiPolicy;
 
+        // The mocked transport every action routes through - see
+        // INetworkBridge's own comment for why this is mocked rather than a
+        // real SDK. LoopbackNetworkBridge (a same-process, always-host
+        // loopback) is the only implementation today, so this is an
+        // observably-inert indirection for every existing (all-local) match:
+        // SendIntent synchronously raises ActionConfirmed, so applying an
+        // action still happens within the same call stack as before.
+        public INetworkBridge Bridge { get; private set; }
+
         public GameState State { get; private set; }
 
         public DieSource? ArmedSource { get; private set; }
@@ -71,22 +100,18 @@ namespace Quintessence.UI
         // State.Clash?.Pending is always null for non-Clash games, so this extra
         // condition is a provable no-op there - it only ever matters once Clash is
         // enabled, where it correctly freezes drafting until a Ward/Decline prompt
-        // targeting the human is answered. Null-safe on State itself: unlike every
-        // earlier session, State can now legitimately stay null for a real,
-        // extended "waiting at mode-select" period (see StartStandardMatch/
-        // StartClashMatch), not just a one-frame Awake/OnEnable race.
-        // "The human" here means "whichever seat is human and currently
-        // acting" - in hotseat with multiple human seats, ArmDie/
-        // ConfirmPlacement/etc. below act on behalf of GameReducer.CurrentPlayer,
-        // which this already guarantees is a human seat.
+        // targeting a locally-controlled seat is answered. Null-safe on State
+        // itself: State can legitimately stay null for a real, extended
+        // "waiting at mode-select" period (see StartStandardMatch/StartClashMatch),
+        // not just a one-frame Awake/OnEnable race.
         public bool IsHumanTurn =>
             State is not null && !State.IsGameOver && State.CurrentPhase is not null
-            && IsHumanSlot(GameReducer.CurrentPlayer(State))
+            && IsLocalSeat(GameReducer.CurrentPlayer(State))
             && State.Clash?.Pending is null;
 
         public bool AwaitingTurnStart => State is not null && !State.IsGameOver && State.CurrentPhase is null;
 
-        public bool HumanHasPendingResponse => State?.Clash?.Pending is not null && IsHumanSlot(State.Clash.Pending.Target);
+        public bool HumanHasPendingResponse => State?.Clash?.Pending is not null && IsLocalSeat(State.Clash.Pending.Target);
 
         // True from StartTurn() until DiceRollController's physics roll finishes
         // and calls NotifyRollComplete(). PoolView uses this to avoid rendering
@@ -107,6 +132,9 @@ namespace Quintessence.UI
             // own comment) - MainPlay.unity's real game always uses wall-clock time.
             _rng = Rng.Create(_useFixedTestSeed ? _testSeed : DateTime.Now.Ticks);
 
+            Bridge = new LoopbackNetworkBridge();
+            Bridge.ActionConfirmed += ApplyNetworkAction;
+
             // Testing seam only: ClashPlayTest.unity flips this to auto-start a
             // Clash match immediately, bypassing mode-select, because reaching the
             // *real* interventionCost through undirected play is rare by design
@@ -124,16 +152,18 @@ namespace Quintessence.UI
         // StartClashMatch, once the host has picked a player count (2-4) and
         // Human/AI per seat - all-AI is a valid configuration (the host just
         // watches). Skipping this call keeps the old fixed 2-player,
-        // seat-0-human default (see _isHumanSlot's own comment).
+        // seat-0-human default (see _seatControl's own comment). true maps to
+        // LocalHuman, not RemoteHuman - this overload has no way to express a
+        // remote seat yet (see SeatControl's own comment).
         public void ConfigureMatch(int playerCount, IReadOnlyList<bool> isHumanSlot)
         {
-            var slots = new bool[playerCount];
+            var slots = new SeatControl[playerCount];
             for (int i = 0; i < playerCount; i++)
             {
-                slots[i] = i < isHumanSlot.Count && isHumanSlot[i];
+                slots[i] = i < isHumanSlot.Count && isHumanSlot[i] ? SeatControl.LocalHuman : SeatControl.Ai;
             }
 
-            _isHumanSlot = slots;
+            _seatControl = slots;
         }
 
         public void StartStandardMatch()
@@ -143,7 +173,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(_isHumanSlot.Length, _rng);
+            State = GameSetup.NewGame(_seatControl.Length, _rng);
             StateChanged?.Invoke();
         }
 
@@ -159,7 +189,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(_isHumanSlot.Length, _rng, clashConfig: ClashConfig.Default);
+            State = GameSetup.NewGame(_seatControl.Length, _rng, clashConfig: ClashConfig.Default);
             StateChanged?.Invoke();
         }
 
@@ -198,6 +228,14 @@ namespace Quintessence.UI
             StateChanged?.Invoke();
         }
 
+        // Below, every action a locally-controlled seat takes is sent as an
+        // intent through Bridge rather than mutating State directly - the
+        // only place State actually changes for any of these is
+        // ApplyNetworkAction, reached via Bridge.ActionConfirmed. With
+        // today's LoopbackNetworkBridge that happens synchronously within
+        // this same call, so behavior is unchanged; once a real bridge
+        // exists, this is what lets a remote peer's confirmed action apply
+        // through the exact same path.
         public void ConfirmPlacement(int row, int col)
         {
             if (!IsHumanTurn || ArmedSource is null || ArmedDie is null)
@@ -206,11 +244,10 @@ namespace Quintessence.UI
             }
 
             var choice = new DraftChoice(ArmedSource.Value, ArmedIndex, row, col);
-            State = GameReducer.ApplyDraft(State, choice, _rng);
+            int actingPlayer = GameReducer.CurrentPlayer(State);
             ArmedSource = null;
             ArmedDie = null;
-            StateChanged?.Invoke();
-            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
+            Bridge.SendIntent(new NetworkAction.Draft(choice) { ActingPlayer = actingPlayer });
         }
 
         public void ForfeitHumanTurn()
@@ -220,9 +257,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameReducer.ApplyForfeit(State);
-            StateChanged?.Invoke();
-            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
+            Bridge.SendIntent(new NetworkAction.Forfeit { ActingPlayer = GameReducer.CurrentPlayer(State) });
         }
 
         public void DeclareIntervention(InterventionKind kind, InterventionParams parameters)
@@ -232,9 +267,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.DeclareIntervention(State, GameReducer.CurrentPlayer(State), kind, parameters, _rng);
-            StateChanged?.Invoke();
-            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
+            Bridge.SendIntent(new NetworkAction.Declare(kind, parameters) { ActingPlayer = GameReducer.CurrentPlayer(State) });
         }
 
         public void RespondWard()
@@ -244,9 +277,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.Ward(State, State.Clash.Pending.Target);
-            StateChanged?.Invoke();
-            AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
+            Bridge.SendIntent(new NetworkAction.Ward { ActingPlayer = State.Clash.Pending.Target });
         }
 
         public void RespondDeclineWard()
@@ -256,7 +287,35 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.DeclineWard(State, State.Clash.Pending.Target);
+            Bridge.SendIntent(new NetworkAction.DeclineWard { ActingPlayer = State.Clash.Pending.Target });
+        }
+
+        // The only place State is ever mutated by a player action - reached
+        // via Bridge.ActionConfirmed, regardless of whether the action
+        // originated from this client (looped back) or, once a real bridge
+        // exists, a remote peer. Mirrors exactly what each action method
+        // above did directly before routing through the bridge.
+        private void ApplyNetworkAction(NetworkAction action)
+        {
+            switch (action)
+            {
+                case NetworkAction.Draft draft:
+                    State = GameReducer.ApplyDraft(State, draft.Choice, _rng);
+                    break;
+                case NetworkAction.Forfeit:
+                    State = GameReducer.ApplyForfeit(State);
+                    break;
+                case NetworkAction.Declare declare:
+                    State = ClashReducer.DeclareIntervention(State, action.ActingPlayer, declare.Kind, declare.Params, _rng);
+                    break;
+                case NetworkAction.Ward:
+                    State = ClashReducer.Ward(State, action.ActingPlayer);
+                    break;
+                case NetworkAction.DeclineWard:
+                    State = ClashReducer.DeclineWard(State, action.ActingPlayer);
+                    break;
+            }
+
             StateChanged?.Invoke();
             AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
@@ -267,6 +326,9 @@ namespace Quintessence.UI
         // `State.Clash is not null` / `pending is not null` guards short-circuit
         // first), so this collapses to exactly the pre-Clash loop for every
         // non-Clash game - the same gated-no-op discipline C0-C4 already proved out.
+        // Uses IsHumanSlot (any human seat), not IsLocalSeat, since a remote
+        // human's turn must also stop this client's AI auto-resolve - this
+        // client can act for neither an AI seat's moves nor a remote human's.
         private void AdvanceAiTurnsUntilHumanTurnOrRoundEnd()
         {
             while (!State.IsGameOver)

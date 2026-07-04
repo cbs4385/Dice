@@ -86,9 +86,14 @@ namespace Quintessence.UI
                 _seatRows[i].SetActive(i < _playerCount);
             }
 
+            // "Human (Local)" not just "Human": ConfigureMatch's bool[]
+            // shape can only express AI or a locally-controlled human seat
+            // today (see GameSessionController.SeatControl's own comment) -
+            // a remote seat isn't reachable from this screen yet, so the
+            // label doesn't imply a choice that doesn't exist yet.
             for (int i = 0; i < _seatToggleLabels.Length; i++)
             {
-                _seatToggleLabels[i].text = $"Player {i + 1}: " + (_isHumanSlot[i] ? "Human" : "AI");
+                _seatToggleLabels[i].text = $"Player {i + 1}: " + (_isHumanSlot[i] ? "Human (Local)" : "AI");
             }
         }
 
