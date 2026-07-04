@@ -290,6 +290,14 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - Verification: live-tested with dice placed on both players' boards mid-game - dumped both panels' rendered cell labels directly and confirmed they differ and each matches its own player's actual `Board` state. 188/188 EditMode + 37/37 PlayMode green.
 - Not committed yet.
 
+### 2026-07-03 — fixed the RNG-seeding flakiness in ClashPlaySceneInteractionTests with a test-only fixed seed
+
+- Follow-up on a gap flagged after this session's commit `b2f6589`: CI failed twice on two *different* tests in this file (`StormMeter_ReflectsAnInBandPlacement` then `DeclaringAgainstTheAi_AutoResolves_AndPlayContinues`), each on an assertion that a specific random condition existed (a pool die fitting some band cell; an opponent-targeting Clash intervention candidate) - confirmed as pre-existing flakiness, not a regression, since `GameSessionController` seeds `_rng` from `DateTime.Now.Ticks` and every test run therefore starts from a different, unrepeatable game state.
+- Added a test-only seam mirroring the existing `_enableClashForTesting` pattern: `[SerializeField] private bool _useFixedTestSeed` + `_testSeed`, checked in `Awake()` (`Rng.Create(_useFixedTestSeed ? _testSeed : DateTime.Now.Ticks)`). `MainPlay.unity` leaves this false - the real game is untouched and still uses wall-clock time, per the existing "UI is the sanctioned composition root for wall-clock seeding" comment. Only `ClashPlayTest.unity` sets it true.
+- Found seed `1` empirically satisfies every test in the file - since the whole game state (board layout shuffle, objective, every draw) is fully determined by one seed plus the exact sequence of actions taken, and all 4 tests call `StartTurnAndWaitForPool()` identically as their first step, round 1's pool and board are now byte-identical on every run. Verified by running the full 4-test file 3 times in a row with zero failures (previously flaky ~2 out of 3 attempts).
+- Verification: 188/188 EditMode + 37/37 PlayMode green.
+- Not committed yet.
+
 **Entry template** (copy for each new session):
 
 ```

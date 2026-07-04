@@ -5902,6 +5902,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Quintessence.UI::Quintessence.UI.GameSessionController
   _enableClashForTesting: 1
   _testClashInterventionCost: 1
+  _useFixedTestSeed: 1
+  _testSeed: 1
 --- !u!4 &2081856198
 Transform:
   m_ObjectHideFlags: 0

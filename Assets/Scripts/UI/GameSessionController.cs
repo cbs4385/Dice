@@ -28,6 +28,19 @@ namespace Quintessence.UI
         [SerializeField] private bool _enableClashForTesting;
         [SerializeField] private int _testClashInterventionCost = ClashConfig.Default.InterventionCost;
 
+        // Testing seam, NOT a real-gameplay change: wall-clock seeding (below)
+        // is the correct, deliberate choice for the shipped game, but it made
+        // ClashPlaySceneInteractionTests flaky - each run drew a different
+        // seed, and tests that search for a specific random condition (some
+        // die fitting some band cell, some opponent-targeting intervention
+        // existing) occasionally didn't find one within the round, failing
+        // for reasons unrelated to whatever change CI was actually checking.
+        // Stays false in MainPlay.unity; only ClashPlayTest.unity sets this
+        // true with a seed confirmed (by running the suite repeatedly) to
+        // satisfy every test in the file every time.
+        [SerializeField] private bool _useFixedTestSeed;
+        [SerializeField] private long _testSeed;
+
         private IRng _rng;
         private IAiPolicy _aiPolicy;
         private ClashAiPolicy _clashAiPolicy;
@@ -78,7 +91,9 @@ namespace Quintessence.UI
             // UI is the sanctioned composition root for wall-clock seeding - Engine/Game
             // themselves must never touch platform time (enforced by noEngineReferences).
             // Daily mode would instead inject a published fixed seed here.
-            _rng = Rng.Create(DateTime.Now.Ticks);
+            // _useFixedTestSeed overrides this for ClashPlayTest.unity only (see its
+            // own comment) - MainPlay.unity's real game always uses wall-clock time.
+            _rng = Rng.Create(_useFixedTestSeed ? _testSeed : DateTime.Now.Ticks);
 
             // Testing seam only: ClashPlayTest.unity flips this to auto-start a
             // Clash match immediately, bypassing mode-select, because reaching the
