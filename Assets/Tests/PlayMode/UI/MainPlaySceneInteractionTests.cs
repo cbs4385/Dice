@@ -49,13 +49,23 @@ namespace Quintessence.UI.Tests
         }
 
         // A round no longer starts automatically (supervisor asked for an explicit
-        // "Start Turn" gate); the roll animation runs in real time
-        // (GameSessionController.RollAnimationSeconds), so tests that need a
-        // populated pool must click it and wait for real seconds, not just frames.
+        // "Start Turn" gate); the roll animation runs in real time. A fixed
+        // WaitForSeconds(RollAnimationSeconds + buffer) was flaky on a slower CI
+        // runner - found live (a real "Transform child out of bounds" on
+        // PoolContainer in CI, never reproduced locally): a slow enough frame
+        // can push the coroutine's actual finish past a fixed buffer regardless
+        // of its size. Polling the controller's own completion flag instead has
+        // no timing assumption to get wrong.
         private static IEnumerator StartTurnAndWaitForPool()
         {
+            var controller = GameObject.Find("GameSession").GetComponent<GameSessionController>();
             GameObject.Find("StartTurnButton").GetComponent<Button>().onClick.Invoke();
-            yield return new WaitForSeconds(GameSessionController.RollAnimationSeconds + 0.2f);
+            int guard = 0;
+            while (controller.IsRollInProgress && guard < 1200)
+            {
+                guard++;
+                yield return null;
+            }
         }
 
         [UnityTest]

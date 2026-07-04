@@ -42,10 +42,23 @@ namespace Quintessence.UI.Tests
             Assert.That(controller.State.Clash, Is.Not.Null, "ClashPlayTest.unity must have Clash enabled");
         }
 
+        // A fixed WaitForSeconds(RollAnimationSeconds + buffer) was flaky on a
+        // slower CI runner (found live: MainPlaySceneInteractionTests' own copy
+        // of this helper hit "Transform child out of bounds" on PoolContainer in
+        // CI, never reproduced locally) - a slow enough frame can push the
+        // coroutine's actual finish past a fixed buffer regardless of its size.
+        // Polling the controller's own completion flag instead has no timing
+        // assumption to get wrong.
         private static IEnumerator StartTurnAndWaitForPool()
         {
+            var controller = GameObject.Find("GameSession").GetComponent<GameSessionController>();
             GameObject.Find("StartTurnButton").GetComponent<Button>().onClick.Invoke();
-            yield return new WaitForSeconds(GameSessionController.RollAnimationSeconds + 0.2f);
+            int guard = 0;
+            while (controller.IsRollInProgress && guard < 1200)
+            {
+                guard++;
+                yield return null;
+            }
         }
 
         // The AI can also declare an intervention against the human during its own
@@ -230,7 +243,13 @@ namespace Quintessence.UI.Tests
                 if (controller.AwaitingTurnStart)
                 {
                     controller.StartTurn();
-                    yield return new WaitForSeconds(GameSessionController.RollAnimationSeconds + 0.1f);
+                    // Polls the same completion flag as StartTurnAndWaitForPool,
+                    // not a fixed wait - see that helper's comment.
+                    while (controller.IsRollInProgress)
+                    {
+                        yield return null;
+                    }
+
                     continue;
                 }
 

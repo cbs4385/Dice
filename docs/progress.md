@@ -298,6 +298,14 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - Verification: 188/188 EditMode + 37/37 PlayMode green.
 - Not committed yet.
 
+### 2026-07-03 — fixed a second, different-in-kind flakiness: fixed-wait timing, not RNG
+
+- CI on the fixed-seed commit above (`be469cd`) failed again - but this time in `MainPlaySceneInteractionTests.ArmedDie_LeavesAtLeastOneIncompatibleElementCellNonInteractable`, on `MainPlay.unity` (untouched by the seed fix, and correctly so - that scene must keep wall-clock time for the real game). Confirmed via the actual CI log this was a different failure mode entirely: `Transform child out of bounds` on `PoolContainer`, not an RNG-dependent assertion.
+- Root cause: `StartTurnAndWaitForPool()` (duplicated in both `MainPlaySceneInteractionTests.cs` and `ClashPlaySceneInteractionTests.cs`) waited a fixed `WaitForSeconds(RollAnimationSeconds + 0.2f)` after clicking Start Turn, then assumed the pool was rendered. That buffer was sized against local-machine timing; a slow enough frame on a loaded CI runner can push the roll coroutine's actual finish past any fixed buffer, regardless of its size - never reproduced locally, only on CI, which is consistent with a timing margin rather than a logic bug.
+- Fixed by polling `GameSessionController.IsRollInProgress` (already the exact flag `NotifyRollComplete()` clears) instead of guessing a duration, in all three places this pattern appeared: both files' `StartTurnAndWaitForPool()`, `ClashPlaySceneInteractionTests.ScorePanel_ShowsAtGameOver`'s inline wait, and `DiceRollControllerTests`'s. No fixed-duration assumption left anywhere in the PlayMode suite for roll completion.
+- Verification: 188/188 EditMode + 37/37 PlayMode green, twice in a row (PlayMode run time also dropped ~10-15s, since tests no longer over-wait a buffer sized for the worst case).
+- Not committed yet.
+
 **Entry template** (copy for each new session):
 
 ```

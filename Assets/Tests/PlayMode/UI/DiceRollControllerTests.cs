@@ -64,7 +64,18 @@ namespace Quintessence.UI.Tests
             var pool = controller.State.CurrentPhase.Pool;
             Assert.That(dieContainer.childCount, Is.EqualTo(pool.Count));
 
-            yield return new WaitForSeconds(GameSessionController.RollAnimationSeconds + 0.3f);
+            // Polls the actual completion flag rather than a fixed
+            // WaitForSeconds(RollAnimationSeconds + buffer) - a fixed buffer was
+            // found live to be flaky on a slower CI runner (a real "Transform
+            // child out of bounds" elsewhere in the suite, never reproduced
+            // locally), since a slow enough frame can push the coroutine's
+            // actual finish past any fixed buffer.
+            int guard = 0;
+            while (controller.IsRollInProgress && guard < 1200)
+            {
+                guard++;
+                yield return null;
+            }
 
             Assert.That(controller.IsRollInProgress, Is.False, "roll must have finished");
             Assert.That(overlay.activeSelf, Is.False, "overlay must hide once the roll finishes");
