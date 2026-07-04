@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Quintessence.Game;
 using Quintessence.Game.Clash;
 
 namespace Quintessence.UI.Clash
@@ -50,7 +51,7 @@ namespace Quintessence.UI.Clash
             var state = _controller.State;
             IReadOnlyList<(InterventionKind Kind, InterventionParams Params)> candidates =
                 state.Clash is not null && _controller.IsHumanTurn
-                    ? ClashLegalMoves.EnumerateDeclarations(state, 0)
+                    ? ClashLegalMoves.EnumerateDeclarations(state, GameReducer.CurrentPlayer(state))
                     : System.Array.Empty<(InterventionKind, InterventionParams)>();
 
             bool canDeclare = candidates.Count > 0;

@@ -42,7 +42,14 @@ namespace Quintessence.UI
 
             _bagCountsText.text = sb.ToString();
             _objectiveText.text = "Objective: " + state.Objective;
-            _favorText.text = "Favor: " + state.Players[0].FavorRemaining;
+
+            var favorSb = new StringBuilder("Favor:\n");
+            for (int i = 0; i < state.Players.Count; i++)
+            {
+                favorSb.Append("P").Append(i + 1).Append(_controller.IsHumanSlot(i) ? " (You): " : " (AI): ").Append(state.Players[i].FavorRemaining).Append('\n');
+            }
+
+            _favorText.text = favorSb.ToString();
         }
     }
 }

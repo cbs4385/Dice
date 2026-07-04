@@ -15,6 +15,7 @@ namespace Quintessence.UI
         [SerializeField] private GameObject _root;
         [SerializeField] private Button _standardButton;
         [SerializeField] private Button _clashButton;
+        [SerializeField] private PlayerSetupView _playerSetupView;
 
         private void OnEnable()
         {
@@ -31,9 +32,13 @@ namespace Quintessence.UI
             _clashButton.onClick.RemoveListener(OnClashClicked);
         }
 
-        private void OnStandardClicked() => _controller.StartStandardMatch();
+        // Neither mode starts the match directly anymore - the host picks a
+        // player count (2-4) and Human/AI per seat first (all-AI included),
+        // and only PlayerSetupView's own Confirm actually calls
+        // StartStandardMatch/StartClashMatch.
+        private void OnStandardClicked() => _playerSetupView.Show(_controller.StartStandardMatch);
 
-        private void OnClashClicked() => _controller.StartClashMatch();
+        private void OnClashClicked() => _playerSetupView.Show(_controller.StartClashMatch);
 
         private void Render() => _root.SetActive(_controller.State is null);
     }

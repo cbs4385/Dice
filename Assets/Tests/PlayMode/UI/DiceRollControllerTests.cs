@@ -39,6 +39,21 @@ namespace Quintessence.UI.Tests
 
             Assert.That(controller, Is.Not.Null, "GameSession not found after scene load");
             GameObject.Find("StandardModeButton").GetComponent<Button>().onClick.Invoke();
+
+            // Standard/Clash no longer start the match directly - the host now
+            // confirms a player count/type setup first (PlayerSetupView), which
+            // Show() activates. Poll instead of assuming one frame is enough for
+            // Confirm to exist yet (its overlay starts inactive, and
+            // GameObject.Find cannot find inactive objects' children).
+            GameObject confirmGo = null;
+            for (int i = 0; i < 60 && confirmGo == null; i++)
+            {
+                yield return null;
+                confirmGo = GameObject.Find("ConfirmButton");
+            }
+
+            Assert.That(confirmGo, Is.Not.Null, "PlayerSetupView's Confirm button not found after clicking Standard");
+            confirmGo.GetComponent<Button>().onClick.Invoke();
             yield return null;
             Assert.That(controller.State, Is.Not.Null);
         }

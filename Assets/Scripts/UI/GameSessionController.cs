@@ -19,7 +19,15 @@ namespace Quintessence.UI
         // a tuned "feel" decision - see AGENTS.md on feel/juice.
         public const float RollAnimationSeconds = 3.65f;
 
-        private const int HumanPlayerIndex = 0;
+        // Which seats are human-controlled (local hotseat - the rest are AI),
+        // set by the player-setup screen via ConfigureMatch before
+        // StartStandardMatch/StartClashMatch. Defaults to the old fixed
+        // "2 players, seat 0 human, seat 1 AI" shape so any caller that skips
+        // ConfigureMatch (existing tests, ClashPlayTest.unity's auto-start)
+        // keeps its previous behavior unchanged.
+        private bool[] _isHumanSlot = { true, false };
+
+        public bool IsHumanSlot(int playerIndex) => playerIndex >= 0 && playerIndex < _isHumanSlot.Length && _isHumanSlot[playerIndex];
 
         // Testing seam, NOT mode wiring (docs/clash.md C6 is human-gated and not
         // started): stays false in the shipped MainPlay.unity, so the real game is
@@ -67,14 +75,18 @@ namespace Quintessence.UI
         // earlier session, State can now legitimately stay null for a real,
         // extended "waiting at mode-select" period (see StartStandardMatch/
         // StartClashMatch), not just a one-frame Awake/OnEnable race.
+        // "The human" here means "whichever seat is human and currently
+        // acting" - in hotseat with multiple human seats, ArmDie/
+        // ConfirmPlacement/etc. below act on behalf of GameReducer.CurrentPlayer,
+        // which this already guarantees is a human seat.
         public bool IsHumanTurn =>
             State is not null && !State.IsGameOver && State.CurrentPhase is not null
-            && GameReducer.CurrentPlayer(State) == HumanPlayerIndex
+            && IsHumanSlot(GameReducer.CurrentPlayer(State))
             && State.Clash?.Pending is null;
 
         public bool AwaitingTurnStart => State is not null && !State.IsGameOver && State.CurrentPhase is null;
 
-        public bool HumanHasPendingResponse => State?.Clash?.Pending?.Target == HumanPlayerIndex;
+        public bool HumanHasPendingResponse => State?.Clash?.Pending is not null && IsHumanSlot(State.Clash.Pending.Target);
 
         // True from StartTurn() until DiceRollController's physics roll finishes
         // and calls NotifyRollComplete(). PoolView uses this to avoid rendering
@@ -108,6 +120,22 @@ namespace Quintessence.UI
             }
         }
 
+        // Called by the player-setup screen before StartStandardMatch/
+        // StartClashMatch, once the host has picked a player count (2-4) and
+        // Human/AI per seat - all-AI is a valid configuration (the host just
+        // watches). Skipping this call keeps the old fixed 2-player,
+        // seat-0-human default (see _isHumanSlot's own comment).
+        public void ConfigureMatch(int playerCount, IReadOnlyList<bool> isHumanSlot)
+        {
+            var slots = new bool[playerCount];
+            for (int i = 0; i < playerCount; i++)
+            {
+                slots[i] = i < isHumanSlot.Count && isHumanSlot[i];
+            }
+
+            _isHumanSlot = slots;
+        }
+
         public void StartStandardMatch()
         {
             if (State is not null)
@@ -115,7 +143,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(2, _rng);
+            State = GameSetup.NewGame(_isHumanSlot.Length, _rng);
             StateChanged?.Invoke();
         }
 
@@ -131,7 +159,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(2, _rng, clashConfig: ClashConfig.Default);
+            State = GameSetup.NewGame(_isHumanSlot.Length, _rng, clashConfig: ClashConfig.Default);
             StateChanged?.Invoke();
         }
 
@@ -204,7 +232,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.DeclareIntervention(State, HumanPlayerIndex, kind, parameters, _rng);
+            State = ClashReducer.DeclareIntervention(State, GameReducer.CurrentPlayer(State), kind, parameters, _rng);
             StateChanged?.Invoke();
             AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
@@ -216,7 +244,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.Ward(State, HumanPlayerIndex);
+            State = ClashReducer.Ward(State, State.Clash.Pending.Target);
             StateChanged?.Invoke();
             AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
@@ -228,7 +256,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = ClashReducer.DeclineWard(State, HumanPlayerIndex);
+            State = ClashReducer.DeclineWard(State, State.Clash.Pending.Target);
             StateChanged?.Invoke();
             AdvanceAiTurnsUntilHumanTurnOrRoundEnd();
         }
@@ -246,7 +274,7 @@ namespace Quintessence.UI
                 var pending = State.Clash?.Pending;
                 if (pending is not null)
                 {
-                    if (pending.Target == HumanPlayerIndex)
+                    if (IsHumanSlot(pending.Target))
                     {
                         break; // wait for the human to answer via ClashPromptView.
                     }
@@ -257,7 +285,7 @@ namespace Quintessence.UI
                     continue;
                 }
 
-                if (State.CurrentPhase is null || GameReducer.CurrentPlayer(State) == HumanPlayerIndex)
+                if (State.CurrentPhase is null || IsHumanSlot(GameReducer.CurrentPlayer(State)))
                 {
                     break;
                 }

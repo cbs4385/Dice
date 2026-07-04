@@ -48,7 +48,7 @@ namespace Quintessence.UI
                 int score = state.Clash is not null
                     ? ClashScoring.ScoreBoardWithNullifications(player.Board, state.Objective, player.PrivateElement, player.FavorRemaining, state.Clash.NullifiedBandCells, forPlayer: i)
                     : Scoring.ScoreBoard(player.Board, state.Objective, player.PrivateElement, player.FavorRemaining);
-                sb.Append(i == 0 ? "You: " : "AI: ").Append(score).Append('\n');
+                sb.Append("Player ").Append(i + 1).Append(_controller.IsHumanSlot(i) ? " (You): " : " (AI): ").Append(score).Append('\n');
             }
 
             _scoreText.text = sb.ToString();

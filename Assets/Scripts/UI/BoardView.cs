@@ -1,5 +1,6 @@
 using UnityEngine;
 using Quintessence.Engine;
+using Quintessence.Game;
 
 namespace Quintessence.UI
 {
@@ -9,21 +10,27 @@ namespace Quintessence.UI
         [SerializeField] private CellButton _cellButtonPrefab;
         [SerializeField] private Transform _container;
 
-        // Matches GameSessionController's own HumanPlayerIndex (private there,
-        // so not directly shared) - index 0 was already implicitly "the human"
-        // before this view could show any other player; ShowPlayer makes that
-        // explicit instead of hardcoding it into Render.
-        private const int HumanPlayerIndex = 0;
-
         // Serialized (not just settable via ShowPlayer) so each BoardView
         // instance placed in the scene - one per player, shown simultaneously
         // - keeps its own assigned player across a scene save/reload. A
         // private, non-serialized default here was a real bug found live:
         // every BoardView instance silently rendered player 0's board because
         // nothing had ever actually changed this value away from its default.
-        [SerializeField] private int _playerIndex = HumanPlayerIndex;
+        [SerializeField] private int _playerIndex;
 
         private readonly CellButton[,] _cells = new CellButton[Board.Rows, Board.Columns];
+
+        // For instances built at runtime (MultiBoardLayoutController, one
+        // section per player, 2-4 of them) rather than wired in the Inspector
+        // - must be called while this GameObject is still inactive, since
+        // OnEnable below needs _controller already set the moment it fires.
+        public void Configure(GameSessionController controller, CellButton cellButtonPrefab, Transform container, int playerIndex)
+        {
+            _controller = controller;
+            _cellButtonPrefab = cellButtonPrefab;
+            _container = container;
+            _playerIndex = playerIndex;
+        }
 
         private void OnEnable()
         {
@@ -38,9 +45,9 @@ namespace Quintessence.UI
 
         // Switches which player's board this view displays (e.g. wired to
         // "Your Board" / "AI Board" toggle buttons) and re-renders immediately.
-        // Viewing anyone other than the human is automatically read-only - see
-        // IsLegalTarget - since it wouldn't make sense to place the human's
-        // drafted dice onto an opponent's board.
+        // Viewing anyone other than the seat currently acting is automatically
+        // read-only - see IsLegalTarget - since it wouldn't make sense to place
+        // the current drafter's dice onto a different player's board.
         public void ShowPlayer(int playerIndex)
         {
             _playerIndex = playerIndex;
@@ -83,7 +90,16 @@ namespace Quintessence.UI
 
         private bool IsLegalTarget(Board board, int row, int col, Die existingDie)
         {
-            if (_playerIndex != HumanPlayerIndex || !_controller.IsHumanTurn || existingDie is not null || _controller.ArmedDie is not Die armed)
+            // In hotseat with multiple human seats, only whichever seat's
+            // board matches the seat currently acting is ever clickable - not
+            // just "the" human seat, since there may be several.
+            // IsHumanTurn must be checked before CurrentPlayer - it's the
+            // thing guaranteeing a phase is actually in progress; calling
+            // CurrentPlayer first threw "No phase in progress" on every
+            // render before the first round ever starts (found live: every
+            // PlayMode test failed at SetUp).
+            if (!_controller.IsHumanTurn || _playerIndex != GameReducer.CurrentPlayer(_controller.State)
+                || existingDie is not null || _controller.ArmedDie is not Die armed)
             {
                 return false;
             }

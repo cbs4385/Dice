@@ -41,7 +41,7 @@ namespace Quintessence.UI.Clash
             var sb = new StringBuilder("Storm:\n");
             for (int i = 0; i < clash.Storm.Count; i++)
             {
-                sb.Append(i == 0 ? "You: " : "AI: ").Append(clash.Storm[i]).Append('/').Append(clash.Config.StormCap).Append('\n');
+                sb.Append("P").Append(i + 1).Append(_controller.IsHumanSlot(i) ? " (You): " : " (AI): ").Append(clash.Storm[i]).Append('/').Append(clash.Config.StormCap).Append('\n');
             }
 
             sb.Append("Dealt: ").Append(string.Join(", ", clash.InterventionsAvailable));
