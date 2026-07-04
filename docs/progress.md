@@ -343,6 +343,13 @@ Status values: `Not started` · `In progress` · `Blocked` · `In review` (human
 - **Explicitly deferred, not built this slice**: lobby creation/browsing UI, wiring `SteamNetworkBridge`/a "Remote" seat into `PlayerSetupView`, >2-peer games, reconnect/host migration, and replacing app ID 480 with a real one (needs an actual registered Steam app - human-gated).
 - Not committed yet.
 
+### 2026-07-04 — fixed CI: the vendored Steamworks DLL didn't cover Linux Editor
+
+- CI on the commit above (`24b1668`) failed - `error CS0246: The type or namespace name 'Steamworks' could not be found`, on the CI runner specifically, unreproduced locally. Confirmed the actual cause by reading the vendored `.meta` files directly: `Facepunch.Steamworks.Posix.dll.meta`'s Editor-platform setting was `OS: OSX` (as shipped by the release), and `Facepunch.Steamworks.Win64.dll.meta`'s was `OS: Windows` - neither covers "Linux Editor," which is exactly what this project's CI runs on. All three platform-specific managed DLLs (Win32/Win64/Posix) being disabled for that one specific Editor+OS combination meant the `Steamworks` namespace genuinely didn't exist during CI's compile, matching the error exactly.
+- Fixed via Unity's own `PluginImporter` API (not hand-edited YAML) - `Facepunch.Steamworks.Posix.dll`'s Editor OS changed from `OSX` to `Linux`, matching this project's actual dev/CI platforms (Windows dev machine uses `Win64.dll`; Linux CI now uses `Posix.dll`). **Known, disclosed gap**: this trades away Mac Editor support, since nothing now serves that specific combination - acceptable for now since no one on this project currently uses a Mac editor, but worth revisiting if that changes.
+- Verification: 188/188 EditMode + 55/55 PlayMode green locally (unaffected, as expected - this only changes which platform the Editor build picks). The actual fix can only be confirmed by CI itself, since the failure was CI-platform-specific and never reproduced locally.
+- Not committed yet.
+
 **Entry template** (copy for each new session):
 
 ```
