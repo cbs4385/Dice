@@ -19,12 +19,16 @@ namespace Quintessence.UI
         [SerializeField] private Button _joinNetworkButton;
         [SerializeField] private JoinNetworkMatchView _joinNetworkMatchView;
 
+        // Visible only when a save exists (M5 DoD: "save/resume works").
+        [SerializeField] private Button _continueButton;
+
         private void OnEnable()
         {
             _controller.StateChanged += Render;
             _standardButton.onClick.AddListener(OnStandardClicked);
             _clashButton.onClick.AddListener(OnClashClicked);
             _joinNetworkButton.onClick.AddListener(OnJoinNetworkClicked);
+            _continueButton.onClick.AddListener(OnContinueClicked);
             Render();
         }
 
@@ -34,6 +38,7 @@ namespace Quintessence.UI
             _standardButton.onClick.RemoveListener(OnStandardClicked);
             _clashButton.onClick.RemoveListener(OnClashClicked);
             _joinNetworkButton.onClick.RemoveListener(OnJoinNetworkClicked);
+            _continueButton.onClick.RemoveListener(OnContinueClicked);
         }
 
         // Neither mode starts the match directly anymore - the host picks a
@@ -48,10 +53,15 @@ namespace Quintessence.UI
         // configuring seats, only connecting to a host who already did.
         private void OnJoinNetworkClicked() => _joinNetworkMatchView.Show();
 
+        // Skips PlayerSetupView entirely - the seat configuration is already
+        // baked into the save.
+        private void OnContinueClicked() => _controller.LoadGame();
+
         private void Render()
         {
             bool visible = _controller.State is null;
             _root.SetActive(visible);
+            _continueButton.gameObject.SetActive(_controller.HasSavedGame);
 
             if (visible)
             {

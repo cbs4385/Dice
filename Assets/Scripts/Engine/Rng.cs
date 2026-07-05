@@ -6,11 +6,24 @@ namespace Quintessence.Engine
     {
         // Returns a value in [0, maxExclusive).
         int NextInt(int maxExclusive);
+
+        // Exposes the exact internal counter so a caller (e.g. save/resume)
+        // can later reconstruct an RNG that continues the same stream via
+        // Rng.CreateFromState - a save file has to capture exactly where the
+        // stream is, or every draw after loading diverges from what would
+        // have happened without saving, silently breaking determinism the
+        // same way a wrong seed would.
+        ulong ExportState();
     }
 
     public static class Rng
     {
         public static IRng Create(long seed) => new SplitMix64Rng(seed);
+
+        // Resumes a stream from a previously exported state - NOT the same
+        // as Create(long): that re-seeds from scratch, this continues
+        // exactly where ExportState left off.
+        public static IRng CreateFromState(ulong state) => new SplitMix64Rng(state);
     }
 
     // splitmix64 (Sebastiano Vigna, public domain): fixed, deterministic, no platform RNG.
@@ -24,6 +37,15 @@ namespace Quintessence.Engine
         {
             _state = unchecked((ulong)seed);
         }
+
+        // Distinct overload (ulong, not long) - resumes an exported stream
+        // directly rather than re-deriving a starting state from a seed.
+        internal SplitMix64Rng(ulong state)
+        {
+            _state = state;
+        }
+
+        public ulong ExportState() => _state;
 
         internal ulong NextUInt64()
         {

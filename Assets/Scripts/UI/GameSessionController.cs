@@ -7,6 +7,7 @@ using Quintessence.Game;
 using Quintessence.Game.Clash;
 using Quintessence.Game.Network;
 using Quintessence.UI.Network;
+using Quintessence.UI.SaveGame;
 using Steamworks;
 
 namespace Quintessence.UI
@@ -276,6 +277,62 @@ namespace Quintessence.UI
 
             return _steamService;
         }
+
+        // Scoped to local (non-network) matches - a real peer connection
+        // doesn't meaningfully "resume" from a snapshot the way local state
+        // does, and vs-AI (the vertical slice's own chosen mode) is local-only.
+        // A finished match also isn't a useful resume target.
+        private bool CanSaveCurrentMatch => State is not null && !State.IsGameOver && Bridge is not SteamNetworkBridge;
+
+        public bool HasSavedGame => SaveGameService.Exists();
+
+        public void SaveGame()
+        {
+            if (!CanSaveCurrentMatch)
+            {
+                return;
+            }
+
+            byte[] bytes = GameStateWireFormat.Encode(_rng.ExportState(), _seatControl, State);
+            SaveGameService.Save(bytes);
+        }
+
+        // Called by ModeSelectView's "Continue" button - skips
+        // PlayerSetupView entirely, since the seat configuration is already
+        // baked into the save.
+        public void LoadGame()
+        {
+            byte[] bytes = SaveGameService.Load();
+            if (bytes is null)
+            {
+                return;
+            }
+
+            var (rngState, seatControl, state) = GameStateWireFormat.Decode(bytes);
+            _rng = Rng.CreateFromState(rngState);
+            _seatControl = seatControl;
+            State = state;
+            StateChanged?.Invoke();
+        }
+
+        // A genuinely new capability - nothing previously returned from an
+        // active match to the mode-select screen. Resets every per-turn
+        // selection too, so a stale ArmedDie/ArmedSource from the abandoned
+        // match can't leak into whatever's shown next.
+        public void SaveAndExitToMenu()
+        {
+            SaveGame();
+            State = null;
+            IsRollInProgress = false;
+            ArmedSource = null;
+            ArmedIndex = 0;
+            ArmedDie = null;
+            StateChanged?.Invoke();
+        }
+
+        // So closing the game doesn't silently lose progress even if the
+        // player never clicks an explicit save button.
+        private void OnApplicationQuit() => SaveGame();
 
         public void StartTurn()
         {

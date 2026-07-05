@@ -74,5 +74,26 @@ namespace Quintessence.Engine.Tests
 
             Assert.That(seen, Is.EquivalentTo(new[] { 0, 1 }));
         }
+
+        [Test]
+        public void ExportState_CreateFromState_ContinuesTheExactSameStream()
+        {
+            // Save/resume's correctness rests on this: the resumed RNG's next
+            // draws must match what the *original* stream would have drawn
+            // next, not just "produces some deterministic sequence."
+            var original = Rng.Create(12345);
+            for (int i = 0; i < 7; i++)
+            {
+                original.NextInt(500);
+            }
+
+            ulong exported = original.ExportState();
+            var expectedContinuation = Enumerable.Range(0, 10).Select(_ => original.NextInt(500)).ToArray();
+
+            var resumed = Rng.CreateFromState(exported);
+            var actualContinuation = Enumerable.Range(0, 10).Select(_ => resumed.NextInt(500)).ToArray();
+
+            Assert.That(actualContinuation, Is.EqualTo(expectedContinuation));
+        }
     }
 }

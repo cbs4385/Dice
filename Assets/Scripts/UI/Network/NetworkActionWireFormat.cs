@@ -151,7 +151,10 @@ namespace Quintessence.UI.Network
             return new DraftChoice(source, index, row, col, favor);
         }
 
-        private static void WriteInterventionParams(BinaryWriter writer, InterventionParams parameters)
+        // internal, not private: reused by GameStateWireFormat (save/resume)
+        // for ClashState's own InterventionParams payloads (PendingIntervention,
+        // etc.) - same closed set of variants, no reason to duplicate this.
+        internal static void WriteInterventionParams(BinaryWriter writer, InterventionParams parameters)
         {
             switch (parameters)
             {
@@ -197,9 +200,15 @@ namespace Quintessence.UI.Network
         private static NetworkAction.Declare ReadDeclare(BinaryReader reader)
         {
             var kind = (InterventionKind)reader.ReadByte();
+            return new NetworkAction.Declare(kind, ReadInterventionParams(reader));
+        }
+
+        // internal, not private: see WriteInterventionParams's own comment.
+        internal static InterventionParams ReadInterventionParams(BinaryReader reader)
+        {
             byte paramsTag = reader.ReadByte();
 
-            InterventionParams parameters = paramsTag switch
+            return paramsTag switch
             {
                 ScorchTag => new InterventionParams.Scorch(reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32()),
                 RiptideTag => new InterventionParams.Riptide(reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32()),
@@ -209,8 +218,6 @@ namespace Quintessence.UI.Network
                 EclipseCancelTag => new InterventionParams.EclipseCancel(),
                 _ => throw new ArgumentOutOfRangeException(nameof(reader), paramsTag, "Unknown InterventionParams wire tag."),
             };
-
-            return new NetworkAction.Declare(kind, parameters);
         }
 
         private static NetworkAction.MatchStart ReadMatchStart(BinaryReader reader)
