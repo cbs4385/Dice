@@ -7,6 +7,7 @@ using Quintessence.Game;
 using Quintessence.Game.Clash;
 using Quintessence.Game.Network;
 using Quintessence.UI.Network;
+using Steamworks;
 
 namespace Quintessence.UI
 {
@@ -20,14 +21,6 @@ namespace Quintessence.UI
         // pool is real and AI turns may resolve. A placeholder pacing value, not
         // a tuned "feel" decision - see AGENTS.md on feel/juice.
         public const float RollAnimationSeconds = 3.65f;
-
-        // Whether a seat is AI, a human seat this client directly controls
-        // (local hotseat), or a human seat controlled by a remote peer over
-        // the network. RemoteHuman isn't reachable yet - PlayerSetupView only
-        // offers AI/Local today via ConfigureMatch's existing bool[] shape -
-        // but every action already routes through the network bridge below,
-        // so wiring in a real remote seat later needs no further change here.
-        public enum SeatControl { Ai, LocalHuman, RemoteHuman }
 
         // Defaults to the old fixed "2 players, seat 0 human, seat 1 AI" shape
         // so any caller that skips ConfigureMatch (existing tests,
@@ -72,6 +65,12 @@ namespace Quintessence.UI
         private IRng _rng;
         private IAiPolicy _aiPolicy;
         private ClashAiPolicy _clashAiPolicy;
+
+        // Lazily created only by HostNetworkMatch/JoinNetworkMatch - never
+        // auto-instantiated, matching SteamService's own "never touches
+        // Steamworks unless a player actually chose to use network features"
+        // guarantee.
+        private SteamService _steamService;
 
         // The mocked transport every action routes through - see
         // INetworkBridge's own comment for why this is mocked rather than a
@@ -166,6 +165,19 @@ namespace Quintessence.UI
             _seatControl = slots;
         }
 
+        // Overload that can express a RemoteHuman seat directly - what
+        // PlayerSetupView's 3-state toggle actually uses now.
+        public void ConfigureMatch(int playerCount, IReadOnlyList<SeatControl> seats)
+        {
+            var slots = new SeatControl[playerCount];
+            for (int i = 0; i < playerCount; i++)
+            {
+                slots[i] = i < seats.Count ? seats[i] : SeatControl.Ai;
+            }
+
+            _seatControl = slots;
+        }
+
         public void StartStandardMatch()
         {
             if (State is not null)
@@ -173,8 +185,7 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(_seatControl.Length, _rng);
-            StateChanged?.Invoke();
+            StartMatch(isClash: false);
         }
 
         // Uses ClashConfig.Default as-is - the real, provisional, untuned balance
@@ -189,8 +200,81 @@ namespace Quintessence.UI
                 return;
             }
 
-            State = GameSetup.NewGame(_seatControl.Length, _rng, clashConfig: ClashConfig.Default);
-            StateChanged?.Invoke();
+            StartMatch(isClash: true);
+        }
+
+        // With no real network peer involved (today's only tested path,
+        // LoopbackNetworkBridge), calls GameSetup.NewGame directly and
+        // _rng's own consumption is completely unchanged from before this
+        // slice - no risk to the carefully-tuned fixed-test-seed behavior in
+        // ClashPlayTest.unity. Only when actually hosting a real network
+        // match does this instead broadcast a MatchStart action (with a
+        // freshly drawn seed) through the bridge - every connected peer,
+        // and this client itself via its own broadcast loopback, then
+        // constructs identical state in ApplyNetworkAction's MatchStart case
+        // below, which is also what re-seeds _rng for every RNG consumption
+        // from that point on (StartRound, ApplyDraft, AI decisions, etc.) -
+        // both sides must share not just the same starting state but the
+        // same RNG stream going forward, not just at this one moment.
+        private void StartMatch(bool isClash)
+        {
+            if (Bridge is SteamNetworkBridge { IsHost: true })
+            {
+                long seed = DateTime.Now.Ticks;
+                Bridge.SendIntent(new NetworkAction.MatchStart(seed, _seatControl.Length, _seatControl, isClash) { ActingPlayer = 0 });
+            }
+            else
+            {
+                State = GameSetup.NewGame(_seatControl.Length, _rng, clashConfig: isClash ? ClashConfig.Default : null);
+                StateChanged?.Invoke();
+            }
+        }
+
+        // Ensures Steam is available, then swaps Bridge for a real
+        // SteamNetworkBridge in host mode - called by PlayerSetupView before
+        // showing its "waiting for a peer" panel. Returns false if Steam
+        // isn't available (TryInit failed) so the UI can show that clearly
+        // rather than silently doing nothing.
+        public bool HostNetworkMatch()
+        {
+            if (!EnsureSteamService().TryInit(SteamService.PlaceholderAppId))
+            {
+                return false;
+            }
+
+            SwapBridge(SteamNetworkBridge.CreateHost());
+            return true;
+        }
+
+        // Called by JoinNetworkMatchView with the host's manually-shared
+        // Steam ID - no lobby/invite system yet (see the plan's Deferred
+        // section), so this is the only way to connect this slice.
+        public bool JoinNetworkMatch(SteamId hostId)
+        {
+            if (!EnsureSteamService().TryInit(SteamService.PlaceholderAppId))
+            {
+                return false;
+            }
+
+            SwapBridge(SteamNetworkBridge.CreateClient(hostId));
+            return true;
+        }
+
+        private void SwapBridge(INetworkBridge bridge)
+        {
+            Bridge.ActionConfirmed -= ApplyNetworkAction;
+            Bridge = bridge;
+            Bridge.ActionConfirmed += ApplyNetworkAction;
+        }
+
+        private SteamService EnsureSteamService()
+        {
+            if (_steamService == null)
+            {
+                _steamService = gameObject.AddComponent<SteamService>();
+            }
+
+            return _steamService;
         }
 
         public void StartTurn()
@@ -313,6 +397,16 @@ namespace Quintessence.UI
                     break;
                 case NetworkAction.DeclineWard:
                     State = ClashReducer.DeclineWard(State, action.ActingPlayer);
+                    break;
+                case NetworkAction.MatchStart matchStart:
+                    // Every RNG consumption from this point on (StartRound,
+                    // ApplyDraft, AI decisions) must come from this same
+                    // shared-seed stream on every client, not just the
+                    // initial NewGame call - re-seeding _rng itself (not a
+                    // separate local variable) is what makes that hold.
+                    _rng = Rng.Create(matchStart.Seed);
+                    _seatControl = matchStart.Seats as SeatControl[] ?? new List<SeatControl>(matchStart.Seats).ToArray();
+                    State = GameSetup.NewGame(matchStart.PlayerCount, _rng, clashConfig: matchStart.IsClash ? ClashConfig.Default : null);
                     break;
             }
 

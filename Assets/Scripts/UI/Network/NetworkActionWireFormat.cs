@@ -20,6 +20,7 @@ namespace Quintessence.UI.Network
         private const byte DeclareTag = 2;
         private const byte WardTag = 3;
         private const byte DeclineWardTag = 4;
+        private const byte MatchStartTag = 5;
 
         private const byte NoFavorTag = 0;
         private const byte AdjustTag = 1;
@@ -61,6 +62,18 @@ namespace Quintessence.UI.Network
                 case NetworkAction.DeclineWard:
                     writer.Write(DeclineWardTag);
                     break;
+                case NetworkAction.MatchStart matchStart:
+                    writer.Write(MatchStartTag);
+                    writer.Write(matchStart.Seed);
+                    writer.Write(matchStart.PlayerCount);
+                    writer.Write(matchStart.IsClash);
+                    writer.Write((byte)matchStart.Seats.Count);
+                    foreach (var seat in matchStart.Seats)
+                    {
+                        writer.Write((byte)seat);
+                    }
+
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown NetworkAction variant.");
             }
@@ -84,6 +97,7 @@ namespace Quintessence.UI.Network
                 DeclareTag => ReadDeclare(reader),
                 WardTag => new NetworkAction.Ward(),
                 DeclineWardTag => new NetworkAction.DeclineWard(),
+                MatchStartTag => ReadMatchStart(reader),
                 _ => throw new ArgumentOutOfRangeException(nameof(bytes), tag, "Unknown NetworkAction wire tag."),
             };
 
@@ -197,6 +211,21 @@ namespace Quintessence.UI.Network
             };
 
             return new NetworkAction.Declare(kind, parameters);
+        }
+
+        private static NetworkAction.MatchStart ReadMatchStart(BinaryReader reader)
+        {
+            long seed = reader.ReadInt64();
+            int playerCount = reader.ReadInt32();
+            bool isClash = reader.ReadBoolean();
+            byte seatCount = reader.ReadByte();
+            var seats = new SeatControl[seatCount];
+            for (int i = 0; i < seatCount; i++)
+            {
+                seats[i] = (SeatControl)reader.ReadByte();
+            }
+
+            return new NetworkAction.MatchStart(seed, playerCount, seats, isClash);
         }
     }
 }

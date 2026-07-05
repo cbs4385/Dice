@@ -28,6 +28,9 @@ namespace Quintessence.UI.DiceRoll
         private MeshCollider _meshCollider;
         private IReadOnlyList<Vector3> _upDirections;
 
+        private static readonly Color HighlightColor = Color.yellow;
+        private Color _baseColor;
+
         private readonly struct LabelEntry
         {
             public readonly GameObject GameObject;
@@ -65,6 +68,10 @@ namespace Quintessence.UI.DiceRoll
             _upDirections = meshResult.UpDirections;
             _meshFilter.sharedMesh = meshResult.Mesh;
             _meshRenderer.sharedMaterial = material;
+            // material is null in at least one existing test that only
+            // exercises rotation math, not rendering (DiceRollControllerTests)
+            // - stay null-safe rather than assuming every caller cares about color.
+            _baseColor = material != null ? material.color : Color.white;
             _meshCollider.sharedMesh = meshResult.Mesh;
             _meshCollider.convex = true;
 
@@ -115,6 +122,12 @@ namespace Quintessence.UI.DiceRoll
             Vector3 localUp = _upDirections[(face - 1) % _upDirections.Count];
             return Quaternion.FromToRotation(localUp, Vector3.up);
         }
+
+        // Tints this specific instance, not the shared material every die of
+        // the same element uses - accessing .material (not .sharedMaterial)
+        // lazily clones a per-instance copy on first use, so highlighting one
+        // die can't bleed onto every other die sharing its element's material.
+        public void SetHighlighted(bool highlighted) => _meshRenderer.material.color = highlighted ? HighlightColor : _baseColor;
 
         // Launches this die under live Rigidbody physics from an explicit pose -
         // used only during DiceRollController's offscreen precompute pass (see

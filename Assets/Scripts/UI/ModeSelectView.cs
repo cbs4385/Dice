@@ -16,12 +16,15 @@ namespace Quintessence.UI
         [SerializeField] private Button _standardButton;
         [SerializeField] private Button _clashButton;
         [SerializeField] private PlayerSetupView _playerSetupView;
+        [SerializeField] private Button _joinNetworkButton;
+        [SerializeField] private JoinNetworkMatchView _joinNetworkMatchView;
 
         private void OnEnable()
         {
             _controller.StateChanged += Render;
             _standardButton.onClick.AddListener(OnStandardClicked);
             _clashButton.onClick.AddListener(OnClashClicked);
+            _joinNetworkButton.onClick.AddListener(OnJoinNetworkClicked);
             Render();
         }
 
@@ -30,6 +33,7 @@ namespace Quintessence.UI
             _controller.StateChanged -= Render;
             _standardButton.onClick.RemoveListener(OnStandardClicked);
             _clashButton.onClick.RemoveListener(OnClashClicked);
+            _joinNetworkButton.onClick.RemoveListener(OnJoinNetworkClicked);
         }
 
         // Neither mode starts the match directly anymore - the host picks a
@@ -39,6 +43,10 @@ namespace Quintessence.UI
         private void OnStandardClicked() => _playerSetupView.Show(_controller.StartStandardMatch);
 
         private void OnClashClicked() => _playerSetupView.Show(_controller.StartClashMatch);
+
+        // The joining player never sees PlayerSetupView - they aren't
+        // configuring seats, only connecting to a host who already did.
+        private void OnJoinNetworkClicked() => _joinNetworkMatchView.Show();
 
         private void Render() => _root.SetActive(_controller.State is null);
     }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Quintessence.Game.Clash;
 
 namespace Quintessence.Game.Network
@@ -28,5 +29,14 @@ namespace Quintessence.Game.Network
         public sealed record Ward : NetworkAction;
 
         public sealed record DeclineWard : NetworkAction;
+
+        // The host's one-time "here's the match configuration" broadcast -
+        // sent through this same SendIntent/ActionConfirmed pipe rather than
+        // a second new message-type system, so every connected peer (and
+        // the host itself, via its own broadcast loopback) constructs
+        // identical starting state via GameSetup.NewGame(PlayerCount,
+        // Rng.Create(Seed), ...) instead of each independently seeding its
+        // own, different game.
+        public sealed record MatchStart(long Seed, int PlayerCount, IReadOnlyList<SeatControl> Seats, bool IsClash) : NetworkAction;
     }
 }

@@ -39,6 +39,11 @@ namespace Quintessence.UI.Network
 
         public event Action<NetworkAction>? ActionConfirmed;
 
+        // Host-side only: fires once per peer that successfully connects -
+        // lets the host UI know exactly when to send MatchStart, rather than
+        // guessing or polling for a connection that may never come.
+        public event Action? PeerConnected;
+
         private SteamNetworkBridge(bool isHost)
         {
             IsHost = isHost;
@@ -94,9 +99,7 @@ namespace Quintessence.UI.Network
         // ISocketManager - host side, one callback set per connected peer.
         void ISocketManager.OnConnecting(Connection connection, ConnectionInfo info) => connection.Accept();
 
-        void ISocketManager.OnConnected(Connection connection, ConnectionInfo info)
-        {
-        }
+        void ISocketManager.OnConnected(Connection connection, ConnectionInfo info) => PeerConnected?.Invoke();
 
         void ISocketManager.OnDisconnected(Connection connection, ConnectionInfo info)
         {

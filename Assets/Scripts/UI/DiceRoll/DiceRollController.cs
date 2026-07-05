@@ -304,25 +304,12 @@ namespace Quintessence.UI.DiceRoll
 
         // Maps the 2D pool tray's on-screen position into the arena's world
         // space, so the physics dice can fly to the exact spot the real pool
-        // buttons will appear - the RenderTexture overlay covers the full screen
-        // 1:1, so a screen point maps to a viewport fraction *of the screen*,
-        // and from there to a world point on the floor plane via the arena
-        // camera (orthographic projection keeps X/Z independent of the chosen
-        // depth, so any in-range depth gives the same X/Z result).
-        //
-        // Deliberately NOT _arenaCamera.ScreenToViewportPoint: that divides by
-        // the arena camera's own pixelWidth/pixelHeight, which is the
-        // *RenderTexture's* 1024x768, not the actual screen/canvas size the
-        // pool tray's screen position was measured in - a real bug found live
-        // (dice flew to screen center instead of the tray).
-        private Vector3 ComputeTrayWorldPosition()
-        {
-            Vector3 screenPos = RectTransformUtility.WorldToScreenPoint(null, _trayTarget.position);
-            Vector3 viewportPos = new Vector3(screenPos.x / Screen.width, screenPos.y / Screen.height, 0f);
-            float depth = Mathf.Abs(_arenaCamera.transform.position.y - RestHeight);
-            Vector3 worldPos = _arenaCamera.ViewportToWorldPoint(new Vector3(viewportPos.x, viewportPos.y, depth));
-            return new Vector3(worldPos.x, RestHeight, worldPos.z);
-        }
+        // buttons will appear (orthographic projection keeps X/Z independent
+        // of the chosen depth, so any in-range depth gives the same X/Z
+        // result) - see ArenaProjection's own comment for why this specific
+        // screen->world math is needed.
+        private Vector3 ComputeTrayWorldPosition() =>
+            ArenaProjection.ScreenToWorldOnPlane(_arenaCamera, _trayTarget.position, RestHeight);
 
         private Material MaterialFor(Element element)
         {

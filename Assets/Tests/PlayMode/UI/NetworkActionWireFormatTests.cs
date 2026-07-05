@@ -177,5 +177,40 @@ namespace Quintessence.UI.Tests
             var decoded = NetworkActionWireFormat.Decode(NetworkActionWireFormat.Encode(original));
             Assert.That(decoded, Is.InstanceOf<NetworkAction.DeclineWard>());
         }
+
+        [Test]
+        public void MatchStart_RoundTrips()
+        {
+            var seats = new[] { SeatControl.LocalHuman, SeatControl.RemoteHuman, SeatControl.Ai };
+            var original = new NetworkAction.MatchStart(123456789L, 3, seats, IsClash: true)
+            {
+                ActingPlayer = 0,
+                SequenceNumber = 0,
+            };
+
+            var decoded = (NetworkAction.MatchStart)NetworkActionWireFormat.Decode(NetworkActionWireFormat.Encode(original));
+
+            Assert.That(decoded.Seed, Is.EqualTo(123456789L));
+            Assert.That(decoded.PlayerCount, Is.EqualTo(3));
+            Assert.That(decoded.IsClash, Is.True);
+            Assert.That(decoded.Seats, Is.EqualTo(seats));
+        }
+
+        [Test]
+        public void MatchStart_NotClash_RoundTrips()
+        {
+            var seats = new[] { SeatControl.LocalHuman, SeatControl.Ai };
+            var original = new NetworkAction.MatchStart(-42L, 2, seats, IsClash: false)
+            {
+                ActingPlayer = 0,
+                SequenceNumber = 0,
+            };
+
+            var decoded = (NetworkAction.MatchStart)NetworkActionWireFormat.Decode(NetworkActionWireFormat.Encode(original));
+
+            Assert.That(decoded.Seed, Is.EqualTo(-42L));
+            Assert.That(decoded.IsClash, Is.False);
+            Assert.That(decoded.Seats, Is.EqualTo(seats));
+        }
     }
 }

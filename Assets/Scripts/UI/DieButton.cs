@@ -28,5 +28,16 @@ namespace Quintessence.UI
         }
 
         public void SetSelected(bool selected) => _background.color = selected ? SelectedColor : _baseColor;
+
+        // Turns this button into an invisible click-catcher - its RectTransform
+        // and Button still work exactly as before, just with nothing drawn, so
+        // a real visual (e.g. a 3D die rendered behind it) can show through
+        // instead. Used by FirmamentView once its 3D die display took over
+        // the visible presentation.
+        public void SetChromeVisible(bool visible)
+        {
+            _label.text = visible ? _label.text : string.Empty;
+            _background.color = visible ? _baseColor : new Color(0f, 0f, 0f, 0f);
+        }
     }
 }
