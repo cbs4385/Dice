@@ -38,6 +38,10 @@ namespace Quintessence.UI.Tests
             }
 
             Assert.That(controller, Is.Not.Null, "GameSession not found after scene load");
+
+            // TitleScreenView is the first screen shown now - ModeSelectView is
+            // only explicitly Show()n by its Play button, no longer auto-shown.
+            GameObject.Find("PlayButton").GetComponent<Button>().onClick.Invoke();
             GameObject.Find("StandardModeButton").GetComponent<Button>().onClick.Invoke();
 
             // Standard/Clash no longer start the match directly - the host now

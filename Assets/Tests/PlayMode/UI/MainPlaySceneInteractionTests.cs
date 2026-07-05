@@ -39,6 +39,13 @@ namespace Quintessence.UI.Tests
 
             Assert.That(controller, Is.Not.Null, "GameSession not found after scene load");
 
+            // TitleScreenView is now the first screen shown - ModeSelectView is
+            // only ever explicitly Show()n by its Play button, no longer
+            // auto-shown (State stays null through the entire pre-match flow,
+            // not just at launch, so it can't use that as its own show
+            // condition without competing with the title screen).
+            GameObject.Find("PlayButton").GetComponent<Button>().onClick.Invoke();
+
             // The game no longer auto-starts (docs/clash.md C6: a real mode choice
             // now exists) - these tests exercise Standard play, so pick it via the
             // real button the same way ArmDie/ConfirmPlacement etc. are driven.

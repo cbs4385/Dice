@@ -3,12 +3,17 @@ using UnityEngine.UI;
 
 namespace Quintessence.UI
 {
-    // Shown whenever no match has started yet. "Clash (experimental)" starts a
-    // real Clash match using ClashConfig.Default as-is - the honest way to expose
-    // that its balance values are provisional and untuned (docs/clash.md SS2.4),
-    // not something this scaffold decided was good. Lives on a stable, always-
-    // active parent (not on the overlay it toggles) - see ScorePanel's fix in C5
-    // for why that matters.
+    // Explicitly Show()n by TitleScreenView's "Play" button, not auto-shown -
+    // State stays null through the *entire* pre-match flow (title screen,
+    // mode-select, player-setup), not just at launch, so "show when State is
+    // null" would compete with the title screen for the same condition.
+    // Still auto-*hides* itself the instant a match starts. "Clash
+    // (experimental)" starts a real Clash match using ClashConfig.Default
+    // as-is - the honest way to expose that its balance values are
+    // provisional and untuned (docs/clash.md SS2.4), not something this
+    // scaffold decided was good. Lives on a stable, always-active parent
+    // (not on the overlay it toggles) - see ScorePanel's fix in C5 for why
+    // that matters.
     public sealed class ModeSelectView : MonoBehaviour
     {
         [SerializeField] private GameSessionController _controller;
@@ -24,21 +29,29 @@ namespace Quintessence.UI
 
         private void OnEnable()
         {
-            _controller.StateChanged += Render;
+            _controller.StateChanged += OnStateChanged;
             _standardButton.onClick.AddListener(OnStandardClicked);
             _clashButton.onClick.AddListener(OnClashClicked);
             _joinNetworkButton.onClick.AddListener(OnJoinNetworkClicked);
             _continueButton.onClick.AddListener(OnContinueClicked);
-            Render();
+            RefreshContinueButton();
         }
 
         private void OnDisable()
         {
-            _controller.StateChanged -= Render;
+            _controller.StateChanged -= OnStateChanged;
             _standardButton.onClick.RemoveListener(OnStandardClicked);
             _clashButton.onClick.RemoveListener(OnClashClicked);
             _joinNetworkButton.onClick.RemoveListener(OnJoinNetworkClicked);
             _continueButton.onClick.RemoveListener(OnContinueClicked);
+        }
+
+        // Called by TitleScreenView's "Play" button.
+        public void Show()
+        {
+            _root.SetActive(true);
+            RefreshContinueButton();
+            UiFocus.Claim(_standardButton);
         }
 
         // Neither mode starts the match directly anymore - the host picks a
@@ -57,16 +70,19 @@ namespace Quintessence.UI
         // baked into the save.
         private void OnContinueClicked() => _controller.LoadGame();
 
-        private void Render()
+        // Only ever hides itself once a match starts - showing is only ever
+        // triggered explicitly via Show() (TitleScreenView's Play button).
+        private void OnStateChanged()
         {
-            bool visible = _controller.State is null;
-            _root.SetActive(visible);
-            _continueButton.gameObject.SetActive(_controller.HasSavedGame);
-
-            if (visible)
+            if (_controller.State is not null)
             {
-                UiFocus.ClaimIfInvalid(_standardButton);
+                _root.SetActive(false);
+                return;
             }
+
+            RefreshContinueButton();
         }
+
+        private void RefreshContinueButton() => _continueButton.gameObject.SetActive(_controller.HasSavedGame);
     }
 }
