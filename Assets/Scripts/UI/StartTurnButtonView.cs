@@ -33,7 +33,13 @@ namespace Quintessence.UI
                 return;
             }
 
-            _root.SetActive(_controller.AwaitingTurnStart);
+            bool awaitingTurnStart = _controller.AwaitingTurnStart;
+            _root.SetActive(awaitingTurnStart);
+
+            if (awaitingTurnStart)
+            {
+                UiFocus.ClaimIfInvalid(_button);
+            }
         }
     }
 }

@@ -80,6 +80,12 @@ namespace Quintessence.UI
             _root.SetActive(true);
             _hostingStatusPanel.SetActive(false);
             Render();
+            // Unconditional: ModeSelectOverlay's button is still active at
+            // this exact moment (its own deactivation is driven by
+            // ModeSelectView's separate StateChanged subscription, which
+            // hasn't fired yet), so ClaimIfInvalid's guard would wrongly
+            // refuse to move focus here.
+            UiFocus.Claim(_playerCountButtons[0]);
         }
 
         private void SetPlayerCount(int count)
@@ -173,6 +179,7 @@ namespace Quintessence.UI
                 _hostingStatusText.text = "Could not start hosting - is Steam running?";
                 _root.SetActive(false);
                 _hostingStatusPanel.SetActive(true);
+                UiFocus.ClaimIfInvalid(_hostingBackButton);
                 return;
             }
 
@@ -185,6 +192,7 @@ namespace Quintessence.UI
                 + "\nShare this with your remote player. Waiting for them to connect...";
             _root.SetActive(false);
             _hostingStatusPanel.SetActive(true);
+            UiFocus.ClaimIfInvalid(_hostingBackButton);
         }
 
         private void OnPeerConnected()
@@ -209,6 +217,7 @@ namespace Quintessence.UI
             _hostingStatusPanel.SetActive(false);
             _root.SetActive(true);
             Render();
+            UiFocus.ClaimIfInvalid(_playerCountButtons[0]);
         }
     }
 }

@@ -126,6 +126,13 @@ namespace Quintessence.UI
                 _spawnedDice[i].gameObject.SetActive(false);
                 _spawnedDiceEntryId[i] = -1;
             }
+
+            // Same rule as PoolView - either is an equally valid first
+            // keyboard/controller target for an unarmed human turn.
+            if (firmament.Count > 0 && _controller.IsHumanTurn && _controller.ArmedDie is null)
+            {
+                UiFocus.ClaimIfInvalid(_spawned[0].Button);
+            }
         }
 
         private DieButton Spawn()

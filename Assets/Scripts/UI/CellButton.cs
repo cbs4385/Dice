@@ -15,6 +15,8 @@ namespace Quintessence.UI
 
         public int Col { get; private set; }
 
+        public Button Button => _button;
+
         public void Initialize(int row, int col, Action<int, int> onClicked)
         {
             Row = row;

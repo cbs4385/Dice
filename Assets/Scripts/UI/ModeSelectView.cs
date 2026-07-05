@@ -48,6 +48,15 @@ namespace Quintessence.UI
         // configuring seats, only connecting to a host who already did.
         private void OnJoinNetworkClicked() => _joinNetworkMatchView.Show();
 
-        private void Render() => _root.SetActive(_controller.State is null);
+        private void Render()
+        {
+            bool visible = _controller.State is null;
+            _root.SetActive(visible);
+
+            if (visible)
+            {
+                UiFocus.ClaimIfInvalid(_standardButton);
+            }
+        }
     }
 }

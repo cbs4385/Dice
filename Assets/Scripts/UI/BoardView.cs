@@ -20,6 +20,13 @@ namespace Quintessence.UI
 
         private readonly CellButton[,] _cells = new CellButton[Board.Rows, Board.Columns];
 
+        // Edge-triggered, not level-triggered: claiming focus every render
+        // while a die stays armed would yank the player back to the first
+        // legal cell any time something else causes a re-render (e.g. an AI
+        // turn elsewhere), undoing their own board navigation. Only the
+        // render where ArmedDie first becomes non-null should move focus.
+        private bool _wasArmedLastRender;
+
         // For instances built at runtime (MultiBoardLayoutController, one
         // section per player, 2-4 of them) rather than wired in the Inspector
         // - must be called while this GameObject is still inactive, since
@@ -65,6 +72,7 @@ namespace Quintessence.UI
             }
 
             var board = _controller.State.Players[_playerIndex].Board;
+            CellButton firstLegal = null;
 
             for (int r = 0; r < Board.Rows; r++)
             {
@@ -80,12 +88,37 @@ namespace Quintessence.UI
                     var cellButton = _cells[r, c];
                     var cellDef = board.CellAt(r, c);
                     var die = board.DieAt(r, c);
+                    bool legal = IsLegalTarget(board, r, c, die);
 
                     cellButton.SetLabel(DescribeCell(cellDef, die));
                     cellButton.SetColor(die is not null ? new Color(0.3f, 0.3f, 0.3f) : ColorForCell(cellDef));
-                    cellButton.SetInteractable(IsLegalTarget(board, r, c, die));
+                    cellButton.SetInteractable(legal);
+
+                    if (legal && firstLegal is null)
+                    {
+                        firstLegal = cellButton;
+                    }
                 }
             }
+
+            // Once a die is armed, the board (this player's own, if it's
+            // theirs to act on) is the next keyboard/controller region to
+            // move to - without this there's no path from the pool/Firmament
+            // row to the board at all, since MultiBoardLayoutController spawns
+            // one BoardView per player and Automatic navigation isn't
+            // guaranteed to bridge to the right one. Unconditional (not
+            // ClaimIfInvalid): the pool/Firmament button that was just
+            // submitted to arm this die is still active/interactable by
+            // design (so the player can re-arm a different die later), so
+            // the "don't steal a still-valid selection" guard would
+            // otherwise never let this transition happen at all.
+            bool isArmedNow = _controller.ArmedDie is not null;
+            if (firstLegal is not null && isArmedNow && !_wasArmedLastRender)
+            {
+                UiFocus.Claim(firstLegal.Button);
+            }
+
+            _wasArmedLastRender = isArmedNow;
         }
 
         private bool IsLegalTarget(Board board, int row, int col, Die existingDie)

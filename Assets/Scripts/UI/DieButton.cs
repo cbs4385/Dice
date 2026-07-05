@@ -16,6 +16,8 @@ namespace Quintessence.UI
 
         private Color _baseColor;
 
+        public Button Button => _button;
+
         public void Initialize(Element element, int face, Color color, Action onClicked)
         {
             _label.text = $"{element}\n{face}";

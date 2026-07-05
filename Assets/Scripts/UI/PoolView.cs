@@ -61,6 +61,14 @@ namespace Quintessence.UI
             {
                 _spawned[i].gameObject.SetActive(false);
             }
+
+            // A die not yet armed is the natural first keyboard/controller
+            // focus target for a human turn - once armed, BoardView takes
+            // over and claims focus on the board instead.
+            if (pool.Count > 0 && _controller.IsHumanTurn && _controller.ArmedDie is null)
+            {
+                UiFocus.ClaimIfInvalid(_spawned[0].Button);
+            }
         }
 
         private DieButton Spawn()
