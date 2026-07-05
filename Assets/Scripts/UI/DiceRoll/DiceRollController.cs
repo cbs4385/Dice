@@ -50,6 +50,15 @@ namespace Quintessence.UI.DiceRoll
         private const float HoldSeconds = 2f;
         private const float FlySeconds = 0.35f;
 
+        // docs/gdd.md SS7's reduced-motion accessibility requirement: skips
+        // the tumble playback entirely (dice snap directly to their already-
+        // computed final resting pose - PrecomputeReversedTrajectories still
+        // has to run first, since that's what determines the correct pose,
+        // just its playback is skipped) and shortens the hold. Fly-to-tray
+        // is left unchanged - brief and functional (a handoff), not
+        // gratuitous motion.
+        private const float ReducedMotionHoldSeconds = 0.75f;
+
         // Finer than Unity's default fixed timestep (0.02s) purely for the
         // offscreen precompute pass, which isn't tied to real render time -
         // extra resolution costs nothing here and reduces the chance of a
@@ -95,9 +104,21 @@ namespace Quintessence.UI.DiceRoll
 
             _overlayRoot.SetActive(true);
 
-            yield return PlaybackRecordings(dice, recordings);
+            bool reducedMotion = AccessibilitySettings.ReducedMotion;
+            if (reducedMotion)
+            {
+                for (int i = 0; i < dice.Count; i++)
+                {
+                    DieFrame last = recordings[i][recordings[i].Count - 1];
+                    dice[i].transform.SetPositionAndRotation(last.Position, last.Rotation);
+                }
+            }
+            else
+            {
+                yield return PlaybackRecordings(dice, recordings);
+            }
 
-            yield return new WaitForSeconds(HoldSeconds);
+            yield return new WaitForSeconds(reducedMotion ? ReducedMotionHoldSeconds : HoldSeconds);
 
             Vector3 trayTarget = ComputeTrayWorldPosition();
             var flyCoroutines = new List<Coroutine>();
